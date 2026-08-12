@@ -1,5 +1,38 @@
 @import "./tokens.css";
 
+/* ---------- Type ----------
+   Satoshi, self-hosted from public/fonts rather than fetched from Fontshare's
+   CDN. Three weights, which is all the site uses: 500 for body copy, 700 for
+   every piece of UI, 900 for the 404 numerals.
+
+   Self-hosted so the page does not depend on a third party being reachable.
+   On the CDN, a slow or blocked api.fontshare.com meant the whole site fell
+   back to system sans; these are 74KB in total and served from the same
+   origin as everything else. `swap` keeps text visible while they load. */
+@font-face {
+  font-family: "Satoshi";
+  src: url("/fonts/Satoshi-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Satoshi";
+  src: url("/fonts/Satoshi-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Satoshi";
+  src: url("/fonts/Satoshi-Black.woff2") format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ---------- Reset ---------- */
 *,
 *::before,

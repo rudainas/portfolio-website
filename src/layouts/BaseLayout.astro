@@ -20,13 +20,22 @@ const { title, description = "Portfolio of Rudaina Suwaiba." } = Astro.props;
     <meta name="description" content={description} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 
-    {/* Satoshi is free from Fontshare. The wordmark is SVG artwork, so type
-        only carries nav, CTAs and the 404 — hence `swap` costs nothing.
-        500 = "Page not found", 700 = UI, 900 = the 404 numerals. */}
-    <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+    {/* Satoshi is self-hosted — the @font-face rules are in styles/global.css.
+
+        Only the bold is preloaded. It is the weight every page uses first (nav,
+        buttons, labels), and preloading it starts the download alongside the
+        stylesheet instead of after it. The other two are wanted later or not at
+        all, so preloading them would compete for the same bandwidth.
+
+        `crossorigin` is required even though this is same-origin: fonts are
+        fetched in CORS mode, and without it the browser treats the preload as a
+        different request and downloads the file twice. */}
     <link
-      rel="stylesheet"
-      href="https://api.fontshare.com/v2/css?f[]=satoshi@500,700,900&display=swap"
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/fonts/Satoshi-Bold.woff2"
+      crossorigin
     />
 
     {/* Blocking and inline on purpose: it must run before first paint so the
