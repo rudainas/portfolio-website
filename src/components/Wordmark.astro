@@ -1,0 +1,109 @@
+---
+import { inlineSvg } from "../lib/svg";
+
+import line1 from "../assets/wordmark-line-1.svg?raw";
+import line2 from "../assets/wordmark-line-2.svg?raw";
+import accentMarks from "../assets/accent-marks.svg?raw";
+
+interface Props {
+  /** Accessible text for the artwork. The SVG itself is aria-hidden. */
+  name?: string;
+}
+
+const { name = "Rudaina Suwaiba" } = Astro.props;
+
+/**
+ * The bubble-letter name.
+ *
+ * Inlined rather than used as <img> so GSAP can animate each letter. Both
+ * exports have exactly 7 top-level children under their root <g> — one per
+ * letter of "Rudaina" and "Suwaiba" — which the motion layer targets as
+ * `svg > g > *`. If the artwork is re-exported from Figma with a different
+ * layer grouping, that selector is what needs revisiting.
+ *
+ * Geometry from Figma frame 1508:1898 (1027.73 x 591.41 at canvas 350,235).
+ */
+---
+
+<h1 class="wordmark" data-wordmark>
+  <span class="visually-hidden">{name}</span>
+
+  <span class="wordmark__line wordmark__line--1" data-wordmark-line>
+    <Fragment set:html={inlineSvg(line1, "wm1")} />
+    <span class="wordmark__accent" data-wordmark-accent>
+      <Fragment set:html={inlineSvg(accentMarks, "accent")} />
+    </span>
+  </span>
+
+  <span class="wordmark__line wordmark__line--2" data-wordmark-line>
+    <Fragment set:html={inlineSvg(line2, "wm2")} />
+  </span>
+</h1>
+
+<style>
+  .wordmark {
+    position: absolute;
+    left: 50%;
+    /* Figma centers the block 27.8px above the canvas centre (-2.4888%). */
+    top: 47.5112%;
+    transform: translate(-50%, -50%);
+    z-index: var(--layer-wordmark);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* 1027.726 / 1728 of the design canvas. */
+    width: 59.4749cqw;
+    margin: 0;
+    font-size: 0; /* strip inline-block whitespace between the two lines */
+  }
+
+  .wordmark__line {
+    position: relative;
+    display: block;
+    width: 100%;
+  }
+
+  .wordmark__line :global(svg) {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  /* Note: the letters deliberately have NO pointer-events rule. They are drawn
+     as outlines with fill="none", so native hit-testing only catches the
+     stroke, and even `pointer-events: all` misses — the centre of an "R" or
+     "a" lands in a counter, which is not part of the fill region. The bounce
+     in scripts/motion/hero.ts hit-tests against each letter's bounding box
+     instead. */
+
+  .wordmark__line--1 {
+    aspect-ratio: 1027.726 / 323.209;
+  }
+
+  .wordmark__line--2 {
+    /* 905.306 / 1027.726 — line 2 is narrower and centred under line 1. */
+    width: 88.0887%;
+    aspect-ratio: 905.306 / 256.198;
+    /* Figma gap is 12px at 1027.73 wide. Percentage margins resolve against
+       the containing block's *width*, which is what keeps this proportional. */
+    margin-top: 1.1676%;
+  }
+
+  /* The "!!" marks, positioned relative to line 1 rather than the canvas so
+     they travel with the wordmark as it scales. */
+  .wordmark__accent {
+    position: absolute;
+    left: 32.4025%;
+    top: 19.7996%;
+    width: 6.2034%;
+    aspect-ratio: 63.7539 / 81.8891;
+    /* Purely decorative, and it sits on top of the letters — without this it
+       would swallow hovers meant for the letter underneath. */
+    pointer-events: none;
+  }
+
+  .wordmark__accent :global(svg) {
+    width: 100%;
+    height: 100%;
+  }
+</style>

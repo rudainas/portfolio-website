@@ -1,0 +1,58 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Stage from "../components/Stage.astro";
+import ProjectGallery from "../components/ProjectGallery.astro";
+import ProjectPopup from "../components/ProjectPopup.astro";
+import { PROJECTS } from "../data/projects";
+import { CASE_STUDIES } from "../data/case-studies";
+
+const hasStudy = (key: string) => CASE_STUDIES.some((study) => study.key === key);
+const indexOf = (key: string) => PROJECTS.findIndex((project) => project.key === key);
+
+/* The "Next" pill follows Figma: each study points at the project after it in
+   the gallery's own rotation, wrapping at the end. Basquiat -> Yoko matches
+   1785:3512; Yoko -> Delete Where Applicable matches 1796:6058. */
+const nextOf = (key: string) => {
+  const next = PROJECTS[(indexOf(key) + 1) % PROJECTS.length];
+  return { key: next.key, title: next.title, hasCaseStudy: hasStudy(next.key) };
+};
+
+/* The inverse, for the scroll-up gesture only — Figma shows no "previous"
+   control. Undefined when the project before this one has no case study, which
+   makes that end of the gesture a dead stop rather than a wrap. */
+const prevOf = (key: string) => {
+  const prev = PROJECTS[(indexOf(key) - 1 + PROJECTS.length) % PROJECTS.length];
+  return hasStudy(prev.key) ? prev.key : undefined;
+};
+---
+
+<BaseLayout
+  title="Projects — Rudaina Suwaiba"
+  description="Selected print and design work by Rudaina Suwaiba."
+>
+  {/* One scroll step per project, so each gets a full screen of travel. */}
+  <Stage active="projects" steps={PROJECTS.length}>
+    <ProjectGallery />
+  </Stage>
+
+  {/* Outside Stage: the popups are fixed to the viewport, and Stage's
+      `contain: layout` would otherwise become their containing block. */}
+  {
+    CASE_STUDIES.map((study) => (
+      <ProjectPopup study={study} next={nextOf(study.key)} prev={prevOf(study.key)} />
+    ))
+  }
+
+  <script>
+    import { initProjectPopup } from "../scripts/motion/project-popup";
+    import { initDoodles } from "../scripts/motion/doodles";
+    import { initPaletteDrag } from "../scripts/motion/palette-drag";
+    import { initSketchStrip } from "../scripts/motion/sketch-strip";
+    import { initElements } from "../scripts/motion/elements";
+    initProjectPopup();
+    initDoodles();
+    initPaletteDrag();
+    initSketchStrip();
+    initElements();
+  </script>
+</BaseLayout>

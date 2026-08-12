@@ -1,0 +1,47 @@
+---
+/**
+ * Dashed grid behind the hero.
+ *
+ * The Figma export is a single 1955x1157 path with every line baked in. That
+ * was replaced with an SVG <pattern>, which is ~10x smaller, stays crisp at any
+ * size, and — unlike the export — cannot distort when the viewport aspect
+ * ratio differs from the design canvas.
+ *
+ * Geometry matches Figma exactly: 88.81px pitch, #5D5D5D at 25%, 1.03268
+ * stroke width, 10/10 dash. Pitch stays in fixed pixels rather than scaling,
+ * so line density reads the same on a phone as on a wide display.
+ */
+---
+
+<svg class="grid" aria-hidden="true" focusable="false">
+  <defs>
+    <pattern
+      id="hero-grid"
+      width="88.81"
+      height="88.81"
+      patternUnits="userSpaceOnUse"
+    >
+      <path d="M88.81 0H0M0 0V88.81" />
+    </pattern>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#hero-grid)" />
+</svg>
+
+<style>
+  .grid {
+    position: absolute;
+    inset: 0;
+    z-index: var(--layer-grid);
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .grid path {
+    fill: none;
+    stroke: var(--color-grid-line);
+    stroke-opacity: var(--opacity-grid-line);
+    stroke-width: var(--grid-stroke-width);
+    stroke-dasharray: var(--grid-dash);
+  }
+</style>

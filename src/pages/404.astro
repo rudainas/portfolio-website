@@ -1,0 +1,22 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Stage from "../components/Stage.astro";
+import NotFound from "../components/NotFound.astro";
+
+/**
+ * Astro serves this for any unmatched route — in `astro dev` immediately, and
+ * in production wherever the host is configured to use 404.html (Netlify,
+ * Vercel, GitHub Pages and Cloudflare Pages all do so by default).
+ *
+ * The only page that keeps the cursor trail, and the only one without a nav.
+ */
+---
+
+<BaseLayout
+  title="Page not found — Rudaina Suwaiba"
+  description="That page does not exist."
+>
+  <Stage nav={false} trail>
+    <NotFound />
+  </Stage>
+</BaseLayout>

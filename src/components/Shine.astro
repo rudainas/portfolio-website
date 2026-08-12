@@ -1,0 +1,92 @@
+---
+/**
+ * Reflective shine sweep for images — Figma node 1735:483, "shine-motion".
+ *
+ * Drop inside any clipped, positioned container (a card with
+ * `position: relative; overflow: hidden`) and the sweep wires itself up —
+ * scripts/motion/shine.ts binds hover on this element's parent, so there are
+ * no props or ids to pass.
+ *
+ *   <article class="thumb">
+ *     <Image ... />
+ *     <Shine />
+ *   </article>
+ *
+ * The Figma group is four FLAT bars at 50% white, not a gradient: two pairs,
+ * each a wide bar with a narrow one trailing it, which is what reads as glass
+ * rather than a generic sheen. Group 1 sits at 12.59deg, group 2 at 8deg, and
+ * every bar is skewed 2.7deg and overhangs the card vertically (110% height)
+ * so no top or bottom edge is ever visible mid-sweep.
+ *
+ * All geometry is a percentage of the container, so the same component works
+ * on the 1008px featured card and a 290px thumbnail. Figma's static comp is a
+ * frozen frame of the sweep; the motion module slides the whole group across.
+ */
+---
+
+<span class="shine" data-shine aria-hidden="true">
+  <span class="shine__group" data-shine-group>
+    <span class="shine__bar shine__bar--wide-1"></span>
+    <span class="shine__bar shine__bar--narrow-1"></span>
+    <span class="shine__bar shine__bar--narrow-2"></span>
+    <span class="shine__bar shine__bar--wide-2"></span>
+  </span>
+</span>
+
+<style>
+  .shine {
+    position: absolute;
+    inset: 0;
+    /* Sits over the image but must never eat hover from the card itself. */
+    pointer-events: none;
+    overflow: hidden;
+    /* Above the image, below any label sitting on the card. */
+    z-index: 1;
+  }
+
+  .shine__group {
+    position: absolute;
+    inset: 0;
+    /* Hidden until hover; GSAP parks it off to the left on init. */
+    opacity: 0;
+    will-change: transform, opacity;
+  }
+
+  .shine__bar {
+    position: absolute;
+    /* 761.622 / 690 of the card — deliberately taller so the ends never show. */
+    height: 110.38%;
+    background: rgb(255 255 255 / 0.5);
+  }
+
+  /* Widths: 137.967 and 55.187 of the 1008px card.
+     Centres and vertical offsets are likewise proportional to that frame. */
+
+  .shine__bar--wide-1 {
+    left: 9.002%;
+    top: 48.578%;
+    width: 13.687%;
+    transform: translate(-50%, -50%) rotate(12.59deg) skewX(2.7deg);
+  }
+
+  .shine__bar--narrow-1 {
+    left: 19.925%;
+    top: 52.142%;
+    width: 5.475%;
+    transform: translate(-50%, -50%) rotate(12.59deg) skewX(2.7deg);
+  }
+
+  .shine__bar--narrow-2 {
+    left: 51.538%;
+    top: 49.278%;
+    width: 5.475%;
+    transform: translate(-50%, -50%) rotate(8deg) skewX(2.7deg);
+  }
+
+  .shine__bar--wide-2 {
+    left: 62.421%;
+    top: 51.020%;
+    width: 13.687%;
+    transform: translate(-50%, -50%) rotate(8deg) skewX(2.7deg);
+  }
+</style>

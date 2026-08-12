@@ -1,0 +1,500 @@
+---
+import { inlineSvg } from "../lib/svg";
+
+import podCarousel from "../assets/contact/pod-carousel.svg?raw";
+import closeIcon from "../assets/contact/close.svg?raw";
+
+/* The hover blobs are the NAV's blobs — Figma's instagram-hover (1850:6389),
+   email-hover (1850:6392) and linkedin-hover (1850:6406) export byte for byte
+   the same paths, colours and viewBoxes as the three pills upstairs, at the
+   same three angles. Imported rather than re-exported so there is one copy of
+   each shape in the repo. */
+import blobSky from "../assets/nav/blob-projects.svg?raw";
+import blobPink from "../assets/nav/blob-play.svg?raw";
+import blobYellow from "../assets/nav/blob-contact.svg?raw";
+
+/**
+ * Contact pod — Figma Frame 92 (1536:4620).
+ *
+ * A dialog that opens from the Contact pill in the nav, from anywhere on the
+ * site and at any scroll position. Its lid carries the same star carousel as
+ * the printer on the Play page, at 1.65x the size.
+ *
+ * Rendered at BODY level, next to HoverLabel, rather than inside a Stage. The
+ * stages set `container-type: inline-size`, which implies `contain: layout` —
+ * that makes them the containing block for `position: fixed` AND a stacking
+ * context. A pod inside one would be positioned against the stage instead of
+ * the viewport and could not be layered above the rest of the page, which is
+ * exactly what "wherever the screen is" rules out.
+ *
+ * Sized against Figma's 622-wide frame by container query, so every inner
+ * measurement below is that frame's own number over 622.
+ */
+
+/* Three copies of the artwork laid 5 periods apart, sliding behind the window.
+   FIVE because the artwork spans 5.84 periods: any more and consecutive copies
+   would not overlap, leaving a bare stretch to cross the lid. Whole periods so
+   the copies agree where they do overlap — same motifs, same places, no seam.
+   Fifteen motifs is an odd shift, which flips the bounce's up/down alternation;
+   carousel.ts handles that by placing each copy's motifs in the whole strip. */
+const COPIES = [-1, 0, 1];
+
+/**
+ * Instagram, Email, LinkedIn — Figma's order.
+ *
+ * `aspect` is the blob's own, which is what sizes it: every blob is 48 tall,
+ * the same as the pill, so `height: 100%` plus the ratio reproduces Figma's
+ * width with no per-button magic numbers. `tilt` is the angle it lands at.
+ */
+const LINKS = [
+  {
+    key: "instagram",
+    label: "Instagram",
+    href: "https://www.instagram.com/rudesigns.su/",
+    blob: blobSky,
+    aspect: "130.314 / 48",
+    tilt: -10.56,
+  },
+  {
+    key: "email",
+    label: "Email",
+    /* A mailto, and deliberately WITHOUT a target: handing one to a new tab
+       makes browsers open a blank window beside the mail client. */
+    href: "mailto:rudainasuwaiba4@gmail.com",
+    blob: blobPink,
+    aspect: "95.4717 / 48",
+    tilt: 11.69,
+  },
+  {
+    key: "linkedin",
+    label: "LinkedIn",
+    href: "https://www.linkedin.com/in/rudaina-suwaiba-4a4b79291/",
+    blob: blobYellow,
+    aspect: "130.314 / 48",
+    // Figma leaves this one upright — only the shape swaps.
+    tilt: 0,
+  },
+];
+---
+
+<div class="contact" data-contact-pod hidden>
+  {/* Catches clicks outside the pod. Also dims the page, which Figma does not
+      draw — the pod is a floating frame there, with a drop shadow doing the
+      separating. On a live page that shadow is not enough to say the rest is
+      out of play while the dialog is open. */}
+  <div class="contact__scrim" data-contact-dismiss></div>
+
+  <div
+    class="pod"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="contact-pod-title"
+    data-contact-panel
+  >
+    <div class="pod__lid" aria-hidden="true">
+      <span class="pod__carousel">
+        <span class="pod__carousel-strip" data-pod-carousel>
+          {
+            COPIES.map((step) => (
+              <span
+                class="pod__carousel-copy"
+                /* Read by carousel.ts to place this copy's motifs in the strip
+                   as a whole, which keeps the bounce alternating across joins. */
+                data-carousel-shift={step * 5}
+                style={`--shift: ${step * 5};`}
+                set:html={inlineSvg(podCarousel, `pod-carousel-${step + 1}`)}
+              />
+            ))
+          }
+        </span>
+      </span>
+    </div>
+
+    <div class="pod__body">
+      <div class="pod__head">
+        <h2 class="pod__title" id="contact-pod-title">Rudaina Suwaiba’s pod</h2>
+        <button class="pod__close" type="button" data-contact-dismiss aria-label="Close">
+          <span class="pod__close-icon" set:html={inlineSvg(closeIcon, "pod-close")} />
+        </button>
+      </div>
+
+      <div class="pod__copy">
+        <p>
+          I am a Toronto-based designer currently in my third-year of Design at York
+          University.
+        </p>
+        <p>
+          I enjoy collaborating to learn new skills and practice my expertise is graphic
+          design and UI design!
+        </p>
+        <p>
+          Hope you had a blast looking through my work! The best way to reach me is through
+          my email: rudainasuwaiba4@gmail.com. :))
+        </p>
+      </div>
+
+      <div class="pod__actions">
+        {
+          LINKS.map(({ key, label, href, blob, aspect, tilt }) => (
+            <a
+              class="pod__link"
+              href={href}
+              /* The two social links leave the site, so they open in their own
+                 tab — the pod is a dialog over a page the reader was in the
+                 middle of. The mailto must not; see LINKS above. */
+              target={href.startsWith("http") ? "_blank" : undefined}
+              rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
+              data-sfx-hover
+              data-sfx-click
+              style={`--blob-aspect: ${aspect}; --tilt: ${tilt}deg;`}
+            >
+              <span class="pod__link-bg" aria-hidden="true" />
+              <span class="pod__link-blob" aria-hidden="true">
+                <span class="pod__link-art" set:html={inlineSvg(blob, `pod-blob-${key}`)} />
+              </span>
+              <span class="pod__link-label">{label}</span>
+            </a>
+          ))
+        }
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .contact {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    z-index: var(--layer-modal);
+    /* Padding so the pod never touches the edges on a short or narrow screen,
+       and so a pod taller than the viewport can scroll rather than clip. */
+    padding: 4vh 4vw;
+    overflow: auto;
+  }
+
+  .contact[hidden] {
+    display: none;
+  }
+
+  .contact__scrim {
+    position: fixed;
+    inset: 0;
+    background: rgb(0 0 0 / 0.18);
+  }
+
+  /* Figma's frame is 622 x 445. The width is capped there and every inner
+     measurement is a container query unit against it, so the whole pod scales
+     as one piece and the parts stay in register. */
+  .pod {
+    /**
+     * The pod's own width, named so its corner radius and shadow can be
+     * derived from it.
+     *
+     * They CANNOT use cqw. Container query units resolve against the nearest
+     * ANCESTOR container — an element cannot query itself — so `cqw` written
+     * here fell through to the viewport and made the radius 106px instead of
+     * 45. Everything inside the pod is a descendant and reads the container
+     * correctly; only these two properties, set on the container itself, have
+     * to be worked out from the width directly.
+     */
+    --pod-width: min(622px, 92vw);
+
+    container-type: inline-size;
+    position: relative;
+    width: var(--pod-width);
+    background: var(--color-paper);
+    /* 45 of Figma's 622. */
+    border-radius: calc(var(--pod-width) * 45 / 622);
+    box-shadow:
+      calc(var(--pod-width) * 4.739 / 622) calc(var(--pod-width) * 4.739 / 622)
+      calc(var(--pod-width) * 4.739 / 622) rgb(0 0 0 / 0.25);
+    /* Clips the lid, which Figma draws wider than the frame, to the pod's
+       rounded corners. */
+    overflow: hidden;
+  }
+
+  /* The 3px stroke, drawn as an overlay rather than a border on .pod — the
+     same move Nav.astro makes on its pills, and here it is load-bearing.
+     `container-type: inline-size` measures the CONTENT box, so a real border
+     would leave 1cqw meaning 6.16px instead of 6.22px and every measurement
+     below would be quietly 1% small. Out of flow, the container is exactly
+     Figma's 622 and the numbers are its own. */
+  .pod::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    border: var(--border-bold) solid var(--color-ink);
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  /* 48.663 of 622. */
+  .pod__lid {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 7.8235cqw;
+    background: #faf7f7;
+    border-bottom: var(--border-bold) solid var(--color-ink);
+  }
+
+  /* The window the strip travels behind: 603 wide at x 10, y 7, 35.3016 tall.
+     Plain `overflow: hidden` is enough here, unlike the printer, because the
+     hop is bounded well inside the artwork's own box — no shape ever reaches
+     the window's edge, so there is no vertical relief to preserve. */
+  .pod__carousel {
+    position: absolute;
+    left: 1.6077cqw;
+    top: 1.1254cqw;
+    width: 96.945cqw;
+    height: 5.6755cqw;
+    overflow: hidden;
+  }
+
+  .pod__carousel-strip {
+    position: absolute;
+    inset: 0;
+    display: block;
+    /* GSAP owns this transform — see scripts/motion/carousel.ts. */
+    will-change: transform;
+  }
+
+  /* The artwork is 666.985 units wide in a 603-wide window, so each copy
+     overflows its window by 10.6%. One period is 113 of the copy's own 666.985,
+     which is what the shift below steps by. */
+  .pod__carousel-copy {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 110.6111%;
+    display: block;
+    transform: translateX(calc(var(--shift) * 16.9418%));
+  }
+
+  .pod__carousel-copy :global(svg) {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Content frame at x 42, y 86; 37 of clearance below the buttons. */
+  .pod__body {
+    position: relative;
+    padding: 13.826cqw 6.752cqw 5.949cqw;
+  }
+
+  .pod__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 3.215cqw;
+  }
+
+  .pod__title {
+    margin: 0;
+    /* 25 of 622, floored so it stays legible once the pod is capped by vw. */
+    font-size: clamp(1.0625rem, 4.019cqw, 1.5625rem);
+    /* Figma's title row is 34 tall at 25px. */
+    line-height: calc(34 / 25);
+    font-weight: var(--weight-bold);
+    text-transform: uppercase;
+    color: var(--color-ink);
+  }
+
+  /* 31 of 622. The icon inside is drawn on a 37-unit box — Figma's own 9.68%
+     bleed — so it is scaled up and pulled back out to keep the visible circle
+     the designed 31. */
+  .pod__close {
+    flex: none;
+    width: 4.9839cqw;
+    height: 4.9839cqw;
+    padding: 0;
+    border: 0;
+    background: none;
+    /* Keeps the site's plus cursor rather than the system hand. */
+    cursor: inherit;
+  }
+
+  .pod__close-icon {
+    display: block;
+    width: 119.35%;
+    height: 119.35%;
+    margin: -9.677%;
+  }
+
+  .pod__close-icon :global(svg) {
+    width: 100%;
+    height: 100%;
+  }
+
+  .pod__close:hover .pod__close-icon,
+  .pod__close:focus-visible .pod__close-icon {
+    transform: scale(1.08);
+  }
+
+  .pod__close-icon {
+    transition: transform var(--dur-fast) var(--ease-pop);
+  }
+
+  /* 380 of 622. */
+  .pod__copy {
+    width: 61.093cqw;
+    /* 15 below the title row. */
+    margin-top: 2.412cqw;
+    font-size: clamp(0.75rem, 2.572cqw, 1rem);
+    /* Figma's copy block is 198 tall. At this width it wraps to 7 lines with a
+       blank line between each paragraph — 9 line boxes — so a line is 22 at
+       16px. Derived rather than eyeballed, because the block's height is what
+       positions the buttons and the pod's own bottom edge. */
+    line-height: calc(22 / 16);
+    font-weight: var(--weight-medium);
+    color: var(--color-ink);
+  }
+
+  .pod__copy p {
+    margin: 0;
+  }
+
+  /* Figma spaces the paragraphs with an empty line rather than a margin, so
+     this is exactly one line box. */
+  .pod__copy p + p {
+    margin-top: calc(22em / 16);
+  }
+
+  .pod__actions {
+    display: flex;
+    align-items: center;
+    /* 20 of 622. */
+    gap: 3.215cqw;
+    /* 27 below the copy. */
+    margin-top: 4.341cqw;
+  }
+
+  /* The same pill as the nav's, at the pod's scale: on hover the white pill is
+     replaced by a coloured blob and the whole button tilts. Both layers are
+     always in the DOM and cross-fade, so nothing reflows — which matters here
+     because every blob is a different width from the pill it covers, and a
+     swap would shove its neighbours sideways.
+
+     Driven by CSS `:hover` rather than pointer events. The nav does this in
+     GSAP and has needed two rounds of fixing for states that stuck when the
+     pill moved out from under a still cursor; `:hover` is recomputed by the
+     browser on every layout, so it cannot get stuck that way. */
+  .pod__link {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* Height pinned rather than derived from padding: the 3px stroke on the
+       background layer would otherwise add 6 to Figma's 48. */
+    height: 7.717cqw;
+    padding: 0 2.572cqw;
+    box-sizing: border-box;
+    font-size: clamp(0.8125rem, 2.894cqw, 1.125rem);
+    line-height: calc(24 / 18);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-nav);
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--color-ink);
+    text-decoration: none;
+    cursor: inherit;
+    transition: transform var(--dur-fast) var(--ease-pop);
+  }
+
+  .pod__link:hover,
+  .pod__link:focus-visible {
+    transform: rotate(var(--tilt));
+  }
+
+  /* Resting state: white fill, 3px stroke. Out of flow so the stroke is drawn
+     inside the 48-tall box instead of inflating it. */
+  .pod__link-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: var(--color-paper);
+    border: var(--border-bold) solid var(--color-ink);
+    border-radius: var(--radius-pill);
+    transition: opacity calc(var(--dur-fast) / 2) linear;
+  }
+
+  /* Centring wrapper. Every blob is WIDER or NARROWER than the pill it covers,
+     and for the wider ones the usual centring tricks fail: `inset: 0` with
+     `margin: auto` left-aligns once the box overflows its containing block
+     (CSS 2.1 §10.3.7 solves for a negative margin and the browser zeroes
+     margin-left instead), and grid/flex centring falls back to start for the
+     same reason. So this carries `translateX(-50%)` and takes its width from
+     the blob's own aspect ratio, which centres at any size. The pop is applied
+     to the art inside, so this transform is never disturbed. */
+  .pod__link-blob {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1;
+    height: 100%;
+    aspect-ratio: var(--blob-aspect);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--dur-fast) linear;
+  }
+
+  .pod__link-art {
+    display: block;
+    width: 100%;
+    height: 100%;
+    /* Pops out from slightly under full size, matching BLOB_HIDDEN_SCALE in
+       scripts/motion/hero.ts. */
+    transform: scale(0.72);
+    transition: transform var(--dur-base) var(--ease-pop);
+  }
+
+  .pod__link-art :global(svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .pod__link-label {
+    position: relative;
+    z-index: 2;
+  }
+
+  .pod__link:hover .pod__link-bg,
+  .pod__link:focus-visible .pod__link-bg {
+    opacity: 0;
+  }
+
+  .pod__link:hover .pod__link-blob,
+  .pod__link:focus-visible .pod__link-blob {
+    opacity: 1;
+  }
+
+  .pod__link:hover .pod__link-art,
+  .pod__link:focus-visible .pod__link-art {
+    transform: scale(1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pod__link,
+    .pod__link-bg,
+    .pod__link-blob,
+    .pod__link-art,
+    .pod__close-icon {
+      transition: none;
+    }
+
+    /* The blob still swaps — it is the only hover affordance the design has —
+       but it snaps, and the tilt is skipped. */
+    .pod__link:hover,
+    .pod__link:focus-visible {
+      transform: none;
+    }
+  }
+</style>

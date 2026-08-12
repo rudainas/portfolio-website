@@ -1,0 +1,90 @@
+---
+import { inlineSvg } from "../lib/svg";
+
+import star10 from "../assets/confetti/star-10.svg?raw";
+import star14 from "../assets/confetti/star-14.svg?raw";
+import star15 from "../assets/confetti/star-15.svg?raw";
+import star16 from "../assets/confetti/star-16.svg?raw";
+import star17 from "../assets/confetti/star-17.svg?raw";
+import star18 from "../assets/confetti/star-18.svg?raw";
+import dot43 from "../assets/confetti/dot-43.svg?raw";
+import dot46 from "../assets/confetti/dot-46.svg?raw";
+
+/**
+ * Decorative shapes scattered across the hero.
+ *
+ * `left`/`top` are Figma canvas coordinates (frame 1506:1788, 1728x1117)
+ * expressed as percentages, so the scatter spreads with the viewport instead
+ * of clustering at one corner. `width` is a percentage of canvas width, used
+ * as cqw against the hero's container. `ratio` preserves each shape's aspect.
+ *
+ * `drift` seeds the idle float in src/scripts/motion/hero.ts — varying it per
+ * shape keeps them from bobbing in visible lockstep.
+ */
+/**
+ * `color` selects the streak each shape becomes during the page transition
+ * (see scripts/motion/page-transition.ts), so a yellow star launches a yellow
+ * streak.
+ *
+ * `speed` is the parallax multiplier for that launch — the same idea as
+ * ScrollSmoother's `data-speed`, and it is emitted as that attribute. Values
+ * are deliberately mixed so neighbours never travel together; a uniform
+ * launch reads as one sliding sheet rather than depth.
+ */
+const CONFETTI = [
+  { name: "star-15", svg: star15, left: 19.5043, top: 15.4553, width: 1.1554, ratio: 0.9793, drift: 1.0,  color: "yellow", speed: 1.35 },
+  { name: "star-16", svg: star16, left: 72.5663, top: 11.9019, width: 1.1393, ratio: 1,      drift: 1.35, color: "sky",    speed: 0.9  },
+  { name: "dot-43",  svg: dot43,  left: 93.9236, top: 28.6482, width: 0.8381, ratio: 1,      drift: 0.8,  color: "pink",   speed: 1.7  },
+  { name: "star-17", svg: star17, left: 12.0411, top: 38.9499, width: 1.3792, ratio: 1,      drift: 1.15, color: "sky",    speed: 1.1  },
+  { name: "star-14", svg: star14, left: 83.5218, top: 59.0203, width: 1.4432, ratio: 1,      drift: 0.9,  color: "sky",    speed: 2.0  },
+  { name: "dot-46",  svg: dot46,  left: 8.3912,  top: 76.8130, width: 1.3310, ratio: 1,      drift: 1.25, color: "pink",   speed: 0.8  },
+  { name: "star-10", svg: star10, left: 94.3025, top: 82.2861, width: 1.1824, ratio: 1.0401, drift: 1.05, color: "yellow", speed: 1.5  },
+  { name: "star-18", svg: star18, left: 29.8557, top: 90.2016, width: 1.1590, ratio: 0.9835, drift: 1.4,  color: "yellow", speed: 1.2  },
+];
+---
+
+<div class="confetti-layer" aria-hidden="true">
+  {
+    CONFETTI.map((shape) => (
+      <span
+        class="confetti"
+        data-confetti
+        data-drift={shape.drift}
+        data-color={shape.color}
+        data-speed={shape.speed}
+        style={`
+          --left: ${shape.left}%;
+          --top: ${shape.top}%;
+          --width: ${shape.width}cqw;
+          --ratio: ${shape.ratio};
+        `}
+        set:html={inlineSvg(shape.svg, shape.name)}
+      />
+    ))
+  }
+</div>
+
+<style>
+  .confetti-layer {
+    position: absolute;
+    inset: 0;
+    z-index: var(--layer-confetti);
+    pointer-events: none;
+  }
+
+  .confetti {
+    position: absolute;
+    left: var(--left);
+    top: var(--top);
+    /* Shapes would vanish on narrow screens at raw cqw, so floor the size. */
+    width: max(9px, var(--width));
+    aspect-ratio: var(--ratio);
+    will-change: transform;
+  }
+
+  .confetti :global(svg) {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+</style>

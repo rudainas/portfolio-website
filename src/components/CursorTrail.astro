@@ -1,0 +1,86 @@
+---
+import { inlineSvg } from "../lib/svg";
+
+import shapeCircle from "../assets/trail/shape-circle.svg?raw";
+import shapeStarA from "../assets/trail/shape-star-a.svg?raw";
+import shapeStarB from "../assets/trail/shape-star-b.svg?raw";
+
+/**
+ * Cursor image trail — Figma node 1514:1988 ("mouse trail").
+ *
+ * Mount it inside whichever section should carry the trail; it fills that
+ * section and is clipped to it. It is NOT mounted in the layout, because it
+ * has to sit between the grid backdrop and the hero's content, and .hero
+ * creates a stacking context (`container-type: inline-size` implies
+ * `contain: layout`). A layout-level sibling would always paint above or
+ * below the hero as a whole, never between its layers.
+ *
+ * The shapes live in <template> elements so spawning is a cheap cloneNode
+ * rather than parsing an SVG string on every pointer move.
+ *
+ * To extend the trail, drop another SVG into src/assets/trail/ and add it to
+ * SHAPES — the motion module cycles whatever templates it finds, so no
+ * scripting change is needed.
+ */
+
+const SHAPES = [
+  { key: "circle", svg: shapeCircle },
+  { key: "star-a", svg: shapeStarA },
+  { key: "star-b", svg: shapeStarB },
+];
+---
+
+<div class="trail" data-cursor-trail aria-hidden="true">
+  {
+    SHAPES.map(({ key, svg }) => (
+      <template data-trail-shape>
+        <span class="trail__item" set:html={inlineSvg(svg, `trail-${key}`)} />
+      </template>
+    ))
+  }
+</div>
+
+<style>
+  .trail {
+    /* Absolute, not fixed. Its parent (.hero) has `contain: layout` via
+       container-type, which makes it the containing block for fixed
+       descendants too — so `fixed` would resolve against the hero anyway,
+       but would then break if this component were mounted elsewhere. The
+       motion module converts viewport coordinates to container-relative
+       ones, so absolute is correct wherever it is mounted. */
+    position: absolute;
+    inset: 0;
+    z-index: var(--layer-trail);
+    pointer-events: none;
+    /* Shapes spawned near an edge would otherwise extend the scrollable area. */
+    overflow: hidden;
+  }
+
+  .trail__item {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--trail-size);
+    aspect-ratio: 1;
+    /* Centred on the pointer with negative margins rather than a transform:
+       GSAP owns this element's transform for position, scale and rotation,
+       and nulls the standalone translate/rotate/scale properties. Margins are
+       untouched by all of that. */
+    margin-left: calc(var(--trail-size) / -2);
+    margin-top: calc(var(--trail-size) / -2);
+    will-change: transform, opacity;
+  }
+
+  .trail__item :global(svg) {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+</style>
+
+<script>
+  import { initCursorTrail } from "../scripts/motion/cursor-trail";
+
+  const container = document.querySelector<HTMLElement>("[data-cursor-trail]");
+  if (container) initCursorTrail(container);
+</script>

@@ -1,0 +1,20 @@
+<svg width="37.407" height="37.407" viewBox="0 0 37.407 37.407" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Grab cursor. The default plus (cursor-plus.svg) turned 45deg about its own
+    centre.
+
+    45, not 90: the plus has four-fold symmetry, so a quarter turn maps it onto
+    itself and would be invisible. An eighth turn is the smallest rotation that
+    reads as a different mark, and the arms being equal means it still fits the
+    same 37.407 box exactly — the extremities sit 18.7035 from centre whichever
+    way the pair is turned.
+
+    Stroke weight, cap and geometry are otherwise untouched, so the two cursors
+    are unmistakably the same object in two positions.
+  -->
+  <g stroke="black" stroke-width="9.0318" stroke-linecap="round"
+     transform="rotate(45 18.7035 18.7035)">
+    <path d="M18.7035 4.5159V32.8911" />
+    <path d="M4.5159 18.7035H32.8911" />
+  </g>
+</svg>

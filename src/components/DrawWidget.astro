@@ -1,0 +1,404 @@
+---
+import { inlineSvg } from "../lib/svg";
+import { INKS } from "../data/play";
+
+import printerBody from "../assets/play/printer-body.svg?raw";
+import printerCarousel from "../assets/play/printer-carousel.svg?raw";
+import printerScribble from "../assets/play/printer-scribble.svg?raw";
+import refreshIcon from "../assets/play/refresh.svg?raw";
+
+/**
+ * Draw widget — Figma Frame 125 (1527:4022).
+ *
+ * A little printer that hands the reader a pen. Clicking an ink turns drawing
+ * on and dyes the scribble on its whiteboard to match; clicking the same ink
+ * again turns it off.
+ *
+ * FIXED to the viewport rather than placed in the field, which is where Figma
+ * draws it. It is a control, and the field is endless — dragged into the
+ * distance it would take the only way of turning drawing off with it. Its
+ * resting position matches the file's (714/1728 across, 825/1117 down).
+ */
+---
+
+<div class="widget" data-draw-widget>
+  <div class="printer">
+    <span class="printer__body" set:html={inlineSvg(printerBody, "printer-body")} />
+    <span class="printer__slot" aria-hidden="true"></span>
+    {/* Three copies of the strip, laid exactly 3 pattern periods apart, sliding
+        behind a clipped window.
+
+        THREE is the most they can be spaced and still meet. The artwork is
+        drawn out to x = 404, but its own <g> is clipped to a 224-wide rect, so
+        a copy only PAINTS its first ten motifs however far the geometry runs.
+        Ten motifs is three and a third periods; at a four-period offset the
+        copies fall two motifs short of each other and a gap opens in the strip.
+
+        The offset is a whole number of periods so the copies agree where they
+        overlap — same motifs, same places, no seam. Note it is an ODD number of
+        motifs (nine), which the bounce has to account for: see printer.ts. */}
+    <span class="printer__carousel" aria-hidden="true">
+      <span class="printer__carousel-strip" data-printer-carousel>
+        {[-1, 0, 1].map((step) => (
+          <span
+            class="printer__carousel-copy"
+            /* Read by printer.ts to work out where this copy's motifs sit in
+               the strip as a whole, which is what keeps the bounce alternating
+               across the joins between copies. */
+            data-carousel-shift={step * 3}
+            style={`--shift: ${step * 3};`}
+            set:html={inlineSvg(printerCarousel, `printer-carousel-${step + 1}`)}
+          />
+        ))}
+      </span>
+    </span>
+
+    {/* Everything below the lid, laid out as one centred row rather than
+        placed piece by piece — see .printer__content. */}
+    <div class="printer__content">
+      <div class="printer__board">
+        {/* Dyed to the active ink; the resting sky blue is Figma's. */}
+        <span
+          class="printer__scribble"
+          data-draw-scribble
+          set:html={inlineSvg(printerScribble, "printer-scribble")}
+        />
+      </div>
+
+      <div class="printer__controls">
+        {/* Figma Frame 203 (1837:6387) — label and reset on one row. */}
+        <div class="printer__head">
+          <span class="printer__label">draw!!</span>
+          <button
+            class="reset"
+            type="button"
+            data-draw-reset
+            aria-label="Clear all drawings"
+            title="Clear all drawings"
+          >
+            <span class="reset__icon" set:html={inlineSvg(refreshIcon, "printer-refresh")} />
+          </button>
+        </div>
+
+        <div class="inks" role="group" aria-label="Drawing ink">
+          {
+            INKS.map(({ key, colour }) => (
+              <button
+                class="ink"
+                type="button"
+                data-draw-ink={key}
+                data-colour={colour}
+                style={`--ink: ${colour};`}
+                aria-pressed="false"
+                aria-label={`Draw in ${key}`}
+              />
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="widget__hint">scroll &amp; drag to move around!</p>
+</div>
+
+<style>
+  /* Figma: 714/1728 across, 825/1117 down, 300 wide.
+   *
+   * A FIXED width, unlike everything else on the site. It is a control rather
+   * than artwork, so it wants a consistent physical size — and at Figma's exact
+   * 300 the printer lands at exactly 236, which is what the drawing below is
+   * measured in. That matters: the shell's outline is a vector that scales, but
+   * its lid's stroke and corner radius are the plain pixel values Figma
+   * specifies. Scaling the frame pulled the two apart, and the mismatch showed
+   * as a doubled, offset outline along the top edge.
+   *
+   * The viewport cap is only so it cannot overflow a narrow phone.
+   */
+  .widget {
+    position: absolute;
+    /* Figma puts it at x 714 of 1728 — dead centre, since 714 + 300/2 is 864.
+       Centred from the middle rather than by that left edge: the widget is a
+       fixed 300 now, so a left-edge percentage only lands correctly at the one
+       viewport width where 41.319% happens to be 150px short of the middle. */
+    left: 50%;
+    transform: translateX(-50%);
+    top: 73.859%;
+    width: 300px;
+    max-width: 82vw;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: var(--layer-ui);
+  }
+
+  /* 236 of the widget's 300. Everything inside is a percentage of this, so the
+     parts stay in register with each other. */
+  .printer {
+    position: relative;
+    width: 78.667%;
+    aspect-ratio: 236 / 141.599;
+  }
+
+  .printer__body {
+    position: absolute;
+    display: block;
+  }
+
+  .printer__body {
+    inset: 0;
+  }
+
+  .printer__body :global(svg),
+  .printer__scribble :global(svg) {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  /* The paper slot: a flat lid the carousel rides inside. */
+  .printer__slot {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 21.187%;
+    background: #faf7f7;
+    border: 1.5px solid var(--color-ink);
+    border-radius: 13px 13px 0 0;
+  }
+
+  .printer__carousel {
+    position: absolute;
+    left: 2.119%;
+    /* Centred in the 30-unit lid rather than sitting 3 from its top: the strip
+       is 21.4 tall, so this splits the 8.6 of slack evenly and gives the bounce
+       4.3 units of room in BOTH directions instead of 3 up and 5.6 down. */
+    top: 3.037%;
+    width: 94.915%;
+    height: 15.13%;
+    /* Figma rotates the strip 180deg. */
+    transform: rotate(180deg);
+    /* Clipped SIDEWAYS ONLY, so the marquee is trimmed at the edges of the lid
+       while the bounce is free to leave the strip's own box. `overflow: hidden`
+       cropped the bounce flat; `clip-path` can clip one axis and not the other,
+       which `overflow` cannot — setting overflow-x alone forces the other axis
+       to `auto`.
+
+       The relief is 4.3px each way: the slack the lid has around the strip once
+       the strip is centred in it. The shapes need about 2.2 of that at full
+       hop, so this is not the constraint on the bounce — the lid's border is,
+       and the hop is measured against it in scripts/motion/printer.ts. */
+    overflow: visible;
+    clip-path: inset(-4.3px 0 -4.3px 0);
+  }
+
+  .printer__carousel-strip {
+    position: absolute;
+    inset: 0;
+    display: block;
+    /* GSAP owns this transform — see scripts/motion/printer.ts. */
+    will-change: transform;
+  }
+
+  /* Each copy fills the strip and is shifted by whole periods. 68.5935 of the
+     strip's 224 units is 30.622%, so one period is 30.622% of the width. */
+  .printer__carousel-copy {
+    position: absolute;
+    inset: 0;
+    display: block;
+    transform: translateX(calc(var(--shift) * 30.622%));
+  }
+
+  /* `visible` so the shapes drawn past the 224 viewBox still paint; the window
+     above is what actually crops them. */
+  .printer__carousel-copy :global(svg) {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  /* The lid is 30 of the printer's 141.599; everything else shares what is
+     left, centred in it both ways. Previously each part was pinned by its own
+     Figma offset, which placed them correctly relative to the CANVAS but left
+     the group sitting off-centre inside the shell it actually lives in. */
+  .printer__content {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 21.187%;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Back down from 11%. That width was only there to let the label row reach
+       left into this gutter; the row no longer does, and the wide gap pushed
+       both halves out against the shell. Closing it draws the whiteboard and
+       the controls toward the middle by the same amount each, since the row is
+       centred. */
+    gap: 5%;
+  }
+
+  .printer__board {
+    position: relative;
+    display: grid;
+    place-items: center;
+    /* Figma 102.988 x 74. */
+    width: 43.639%;
+    aspect-ratio: 102.988 / 74;
+    background: #faf7f7;
+    border: 1.5px solid var(--color-ink);
+    border-radius: 4.476px;
+    box-shadow: 0.224px 0.224px 1.029px rgb(0 0 0 / 0.25);
+  }
+
+  .printer__scribble {
+    display: block;
+    /* Figma 58.86 of the board's 102.988. */
+    width: 57.152%;
+    aspect-ratio: 58.86 / 38.052;
+  }
+
+  /* Recoloured to the active ink — see scripts/motion/draw.ts. */
+  .printer__scribble :global(path) {
+    stroke: var(--stroke, #95e1ff);
+    transition: stroke 0.18s ease-out;
+  }
+
+  /* 72 of paints plus the 18 the label row reaches back by — so the row and
+     the column below it share one width, and the paints can centre inside it. */
+  .printer__controls {
+    width: 90px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* Figma: 13 between the label row and the tubes. */
+    gap: 9px;
+  }
+
+  /* Label and reset pushed to opposite ends, so the refresh sits directly over
+     the yellow tube below it.
+     
+     The row reaches 18px further LEFT than the paints it sits above. Matching
+     their width exactly left the label and the icon 1px apart — together they
+     nearly fill it — and the only way to open that gap while keeping the right
+     edge locked to the yellow tube is to extend the other end. The gutter
+     beside the whiteboard was widened to take it. */
+  .printer__head {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .printer__label {
+    /* 16px flat, not scaled: the printer is a fixed size, so the type in it
+       should be too. */
+    font-size: 16px;
+    line-height: 1;
+    font-weight: var(--weight-bold);
+    text-transform: uppercase;
+    color: var(--color-ink);
+    white-space: nowrap;
+  }
+
+  .reset {
+    display: grid;
+    place-items: center;
+    padding: 0;
+    background: none;
+    border: 0;
+    color: var(--color-ink);
+    cursor: inherit;
+    transition: transform 0.2s ease-out;
+  }
+
+  .reset__icon {
+    display: block;
+    /* Figma's 12 x 15, flat — the printer no longer scales, so neither does
+       anything drawn against it. */
+    width: 12px;
+    aspect-ratio: 12 / 15;
+  }
+
+  .reset__icon :global(svg) {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  /* The export hard-codes black; following the button lets it dim on hover. */
+  .reset__icon :global(path) {
+    fill: currentColor;
+  }
+
+  .reset:hover,
+  .reset:focus-visible {
+    /* Turns the way the icon says it will. */
+    transform: rotate(-120deg);
+  }
+
+  /* Figma packs three 15-wide paints 4 apart. These are 18 wide and 9 apart —
+     thicker, and with more than double the air between them, so they read as
+     three separate tubes rather than one striped block. */
+  /* Natural width (3 x 18 + 2 x 9 = 72), centred in the 90 above — so the
+     group sits midway between the label and the refresh rather than flush to
+     one end. */
+  .inks {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    height: 45px;
+  }
+
+  /* Figma: 45 tall, 1.153 stroke, fully rounded. */
+  .ink {
+    width: 18px;
+    height: 100%;
+    background: var(--ink);
+    border: 1.153px solid var(--color-ink);
+    border-radius: 999px;
+    box-shadow: 0.391px 0.391px 1.8px rgb(0 0 0 / 0.25);
+    cursor: inherit;
+    /* Lifted a little on hover so the strip reads as pressable at this size. */
+    transition: transform 0.16s ease-out;
+  }
+
+  /* Both states stay well inside the 9px gap below the label. The lift used to
+     be -14% plus a 1.12 scale, which reached about 9px above the tube and put
+     the armed paint straight through "DRAW!!". */
+  .ink:hover,
+  .ink:focus-visible {
+    transform: translateY(-6%) scale(1.04);
+  }
+
+  /* The chosen ink is marked by a ring rather than by height — it has nowhere
+     to rise to. */
+  .ink[aria-pressed="true"] {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 2px var(--color-ink);
+  }
+
+  .widget__hint {
+    margin-top: 23px;
+    font-size: 16px;
+    line-height: 1.25;
+    font-weight: var(--weight-black);
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--color-ink);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ink,
+    .reset,
+    .printer__scribble :global(path) {
+      transition: none;
+    }
+
+    .reset:hover,
+    .reset:focus-visible {
+      transform: none;
+    }
+  }
+</style>

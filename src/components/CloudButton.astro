@@ -1,0 +1,84 @@
+---
+import { inlineSvg } from "../lib/svg";
+import cloud from "../assets/cloud-button.svg?raw";
+
+interface Props {
+  label?: string;
+  href?: string;
+}
+
+const { label = "Soar in", href = "/projects" } = Astro.props;
+
+/**
+ * Cloud-shaped call to action.
+ *
+ * Figma frame 1508:1974 — 218.01 x 109.61, horizontally centred, 99px from
+ * the bottom. The cloud is a single #95E1FF path; the label sits centred on
+ * top of it rather than being baked into the artwork, so it stays selectable
+ * text and can be animated independently of the shape.
+ */
+---
+
+<div class="cloud-anchor">
+  <a class="cloud" href={href} data-cloud data-sfx-hover data-sfx-click data-transition>
+    <span class="cloud__shape" data-cloud-shape set:html={inlineSvg(cloud, "cloud")} />
+    <span class="cloud__label" data-cloud-label>{label}</span>
+  </a>
+</div>
+
+<style>
+  /* Positioning lives on the wrapper, not the button.
+     GSAP decomposes an element's existing transform into pixels the first
+     time it tweens it — so a `translateX(-50%)` on .cloud would be baked into
+     a fixed px offset and the button would drift off-centre after a resize.
+     Keeping centring on a wrapper leaves .cloud's transform entirely to GSAP. */
+  .cloud-anchor {
+    position: absolute;
+    left: 50%;
+    /* 99 / 1117 of canvas height. */
+    bottom: 8.8630%;
+    transform: translateX(-50%);
+    z-index: var(--layer-ui);
+  }
+
+  .cloud {
+    position: relative;
+    /* 218.01 / 1728 of canvas width. */
+    width: 12.6163cqw;
+    min-width: 132px;
+    aspect-ratio: 218.01 / 109.607;
+    display: grid;
+    place-items: center;
+    /* See Nav.astro — the custom cursor persists over interactive elements;
+       the squash-and-stretch on hover is what signals clickability. */
+    cursor: inherit;
+    /* The idle float animates this element, so shape and label rise and fall
+       together as one object. */
+    will-change: transform;
+  }
+
+  .cloud__shape {
+    position: absolute;
+    inset: 0;
+    /* Hover squash-and-stretch targets the shape alone so the label never
+       skews — but it does NOT float here, or the text would detach. */
+    will-change: transform;
+  }
+
+  .cloud__shape :global(svg) {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .cloud__label {
+    position: relative;
+    font-size: var(--text-cta);
+    font-weight: var(--weight-bold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-nav);
+    color: var(--color-ink);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+</style>

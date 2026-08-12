@@ -1,0 +1,64 @@
+---
+/**
+ * Cursor-following hover label — Figma nodes label-hover (1751:778) and
+ * cursor-defult (1521:3350).
+ *
+ * Those two nodes were given together, which is the point: the label is not
+ * pinned to the card, it rides alongside the cursor. Styling matches the
+ * outlined pill used elsewhere — white fill, 3px stroke, 16/12 padding, 18px
+ * Satoshi Bold uppercase.
+ *
+ * Usage is declarative and generic. Any element carrying `data-hover-label`
+ * shows the pill with that value while the pointer is over it:
+ *
+ *   <article data-hover-label="Prints"> ... </article>
+ *
+ * MOUNTED AT BODY LEVEL, never inside Stage. Stage sets
+ * `container-type: inline-size`, which implies `contain: layout` and makes it
+ * the containing block for fixed descendants — a pill inside it would be
+ * positioned against the stage rather than the viewport, and clipped by its
+ * overflow.
+ */
+---
+
+<span class="hover-label" data-hover-label-pill aria-hidden="true"></span>
+
+<style>
+  .hover-label {
+    position: fixed;
+    top: 0;
+    left: 0;
+    /* Above every in-stage layer, including the cursor trail. */
+    z-index: 10000;
+    pointer-events: none;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Border inset from the padding, as on the nav pills, so the box matches
+       Figma's 16/12 padding rather than inflating by the stroke. */
+    padding: calc(var(--space-3) - var(--border-bold))
+      calc(var(--space-4) - var(--border-bold));
+
+    background: var(--color-paper);
+    border: var(--border-bold) solid var(--color-ink);
+    border-radius: var(--radius-pill);
+
+    /* Same token as the nav pills, so this matches the Contact button at any
+       viewport rather than sitting a size larger. A hardcoded 18px looked
+       oversized because --text-nav clamps down below the 1728px design width.
+       The token uses cqw and this element is outside any container, so it
+       resolves against the viewport — which tracks the nav pills closely
+       because the stage is full-bleed. */
+    font-size: var(--text-nav);
+    line-height: calc(24 / 18);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-nav);
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--color-ink);
+
+    opacity: 0;
+    will-change: transform, opacity;
+  }
+</style>

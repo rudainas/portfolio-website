@@ -1,0 +1,1173 @@
+---
+import type { ImageMetadata } from "astro";
+import { Image } from "astro:assets";
+import { inlineSvg } from "../lib/svg";
+import Doodles from "./Doodles.astro";
+import MediaStrip from "./MediaStrip.astro";
+import type { CaseStudy } from "../data/case-studies";
+
+import closeLarge from "../assets/icons/close-large.svg?raw";
+import arrowOutward from "../assets/icons/arrow-outward.svg?raw";
+/* link-hover (1827:6370) exports the identical vector as the nav's UI Design
+   blob — same 112.473 x 48 path — so it is reused rather than duplicated. */
+import blobLink from "../assets/nav/blob-ui-design.svg?raw";
+import accordionClose from "../assets/icons/accordion-close.svg?raw";
+import accordionOpen from "../assets/icons/accordion-open.svg?raw";
+
+/**
+ * Case-study popup — one component, one instance per study.
+ *
+ *   Basquiat  Project-Pop-up-Basquait (1785:3512) / Case-Study-Basquiat (1765:1104)
+ *   Yoko      Project-Pop-up-Yoko     (1787:4355) / Case-Study-Yoko     (1785:3221)
+ *
+ * Each pair of frames is one component in two states. The popup is a WINDOW: a
+ * transparent panel with a black rounded border, inset 65/92 in the 1728x1117
+ * canvas, through which the Projects page's own grid and confetti stay
+ * visible. Scrolling inside it expands that window to full bleed, which is the
+ * case-study frame. Both states are the same DOM; only the inset, radius and
+ * border animate.
+ *
+ * The panel is deliberately NOT filled — Figma shows the grid and confetti
+ * running straight through it, so a white fill would be wrong.
+ *
+ * All copy, palette and column composition come from data/case-studies.ts.
+ * The two studies genuinely differ in shape — different accordion panels,
+ * different built slots — so nothing here may assume Basquiat's structure.
+ */
+
+type Props = {
+  study: CaseStudy;
+  /** Project shown on the "Next" pill, top right. */
+  next: { key: string; title: string; hasCaseStudy: boolean };
+  /** Study reached by scrolling up past the top; no control in Figma. */
+  prev?: string;
+};
+
+const { study, next, prev } = Astro.props;
+
+/**
+ * Case-study images, picked up automatically from
+ * src/assets/case-study/<study-key>/.
+ *
+ * Drop files in that folder and they appear here in filename order — no code
+ * change needed. Name them with a numeric prefix to control the sequence:
+ *
+ *   01-hero.jpg   02-laptop.jpg   04a-menu.jpg   04b-cup.jpg   ...
+ *
+ * A LETTER SUFFIX makes a row: every image sharing a numeric prefix renders
+ * side by side in one frame. That is how Figma's paired frames (Yoko's Frame
+ * 172, two 460x690 panels) are expressed without a slot type of their own.
+ *
+ * Numbers claimed by a built slot (see CaseStudy.built) are skipped — that is
+ * why Basquiat's uploads jump from 02 to 04.
+ *
+ * `import.meta.glob` with eager: true resolves at BUILD time, so each file
+ * still goes through astro:assets and gets responsive WebP variants. That is
+ * why they belong in src/assets rather than public/ — anything in public/ is
+ * copied verbatim, at full weight, with no optimisation.
+ *
+ * The glob has to cover every study at once: Vite requires a literal pattern,
+ * so it cannot be narrowed to `study.key` at runtime. The results are bucketed
+ * by folder immediately below.
+ */
+const caseStudyModules = import.meta.glob<{ default: ImageMetadata }>(
+  "../assets/case-study/*/*.{jpg,jpeg,png,webp,avif}",
+  { eager: true },
+);
+
+/**
+ * Video slots, named by exactly the same scheme as the stills.
+ *
+ * Kept as a separate glob because video cannot go through `astro:assets` —
+ * that pipeline is for images only. These are emitted as plain hashed URLs
+ * instead, which means a video is shipped at whatever size it was exported, so
+ * it wants compressing before it lands here.
+ */
+const caseStudyVideos = import.meta.glob<string>(
+  "../assets/case-study/*/*.{mp4,webm}",
+  { eager: true, query: "?url", import: "default" },
+);
+
+type Upload = {
+  order: number;
+  lane: string;
+  name: string;
+  crop?: string;
+  fit?: "cover" | "contain";
+} & ({ media: "image"; src: ImageMetadata } | { media: "video"; src: string });
+
+/** Slot's `object-position`, if the study overrides the default centring.
+    A lane-specific entry ("4a") wins over one for the whole slot ("4"). */
+const cropFor = (order: number, lane: string) =>
+  study.crop?.[`${order}${lane}`] ?? study.crop?.[`${order}`];
+
+/** Slot's `object-fit`, same keying. */
+const fitFor = (order: number, lane: string) =>
+  study.fit?.[`${order}${lane}`] ?? study.fit?.[`${order}`];
+
+/** Filename minus the numeric prefix and extension — used as alt text. */
+const labelOf = (file: string) =>
+  file.replace(/\.[^.]+$/, "").replace(/^\d+[a-z]?[-_]?/i, "");
+
+/** Splits `04a-menu-board.jpg` into its slot number and its lane within it. */
+const slotOf = (file: string) => {
+  const [, digits = "99", lane = ""] = file.match(/^(\d+)([a-z]?)/i) ?? [];
+  return { order: Number(digits), lane };
+};
+
+const mine = (path: string) => path.split("/").at(-2) === study.key;
+
+/** Uploads belonging to THIS study, stills and video together, in Figma's order. */
+const uploads: Upload[] = [
+  ...Object.keys(caseStudyModules)
+    .filter(mine)
+    .map((path) => {
+      const file = path.split("/").pop()!;
+      const slot = slotOf(file);
+      return {
+        ...slot,
+        media: "image" as const,
+        src: caseStudyModules[path].default,
+        name: labelOf(file),
+        crop: cropFor(slot.order, slot.lane),
+        fit: fitFor(slot.order, slot.lane),
+      };
+    }),
+  ...Object.keys(caseStudyVideos)
+    .filter(mine)
+    .map((path) => {
+      const file = path.split("/").pop()!;
+      const slot = slotOf(file);
+      return {
+        ...slot,
+        media: "video" as const,
+        src: caseStudyVideos[path],
+        name: labelOf(file),
+        crop: cropFor(slot.order, slot.lane),
+        fit: fitFor(slot.order, slot.lane),
+      };
+    }),
+].sort((a, b) => a.order - b.order || a.lane.localeCompare(b.lane));
+
+type MediaItem =
+  | { order: number; kind: "row"; images: Upload[] }
+  | { order: number; kind: "placeholder"; name: string; node: string; size: string }
+  | ({ order: number } & CaseStudy["built"][number]);
+
+/**
+ * The media column, assembled in Figma's order.
+ *
+ * Uploads group by their numeric prefix — a group of one is a full-width
+ * frame, a group of more is a row — and the built slots are interleaved at
+ * their own positions rather than being pinned to the top and bottom. That is
+ * what the numbering scheme is for.
+ */
+const grouped = new Map<number, Upload[]>();
+for (const upload of uploads) {
+  const group = grouped.get(upload.order) ?? [];
+  group.push(upload);
+  grouped.set(upload.order, group);
+}
+
+/** Slots already filled, as `order` or `order+lane` for a pair. */
+const filled = new Set(uploads.flatMap((u) => [`${u.order}`, `${u.order}${u.lane}`]));
+
+const mediaColumn: MediaItem[] = [
+  ...[...grouped.entries()].map(([order, images]) => ({
+    order,
+    kind: "row" as const,
+    images,
+  })),
+  ...study.built.map((slot) => ({ ...slot, order: slot.at })),
+  /* Placeholders sort into their own Figma positions rather than bunching at
+     the end, so an unfinished column still previews the real running order.
+     Each drops out as soon as its OWN file arrives, which keeps the column a
+     working checklist while it is filled in one image at a time. */
+  ...study.placeholders
+    .filter((slot) => !filled.has(slot.lane ? `${slot.at}${slot.lane}` : `${slot.at}`))
+    .map((slot) => ({ ...slot, order: slot.at, kind: "placeholder" as const })),
+].sort((a, b) => a.order - b.order);
+
+/**
+ * Palette geometry, derived rather than tabulated.
+ *
+ * Figma draws every swatch 450 wide and slides them together so the row fills
+ * its block exactly; only the spacing changes with the count — 278 for three
+ * cards, 187 for four. Given that spacing, the block is `spacing * (n-1) + 450`
+ * wide, and n cards less (n-1) overlaps always comes back to 100% of it. So
+ * both numbers below fall out of one value and the row fills its column at any
+ * size, whatever the count.
+ */
+const PALETTE_CARD_UNITS = 450;
+const paletteSpacing = study.paletteSpacing ?? 278;
+const paletteBlock = paletteSpacing * (study.palette.length - 1) + PALETTE_CARD_UNITS;
+const paletteCard = ((PALETTE_CARD_UNITS / paletteBlock) * 100).toFixed(4);
+const paletteOverlap = (((PALETTE_CARD_UNITS - paletteSpacing) / paletteBlock) * 100).toFixed(4);
+
+/* NOTE: do not read `.width`/`.height` off these ImageMetadata objects, here or
+   in the markup. Touching any property makes Vite treat the asset as used at
+   runtime and emit the untouched original next to the optimised variants —
+   measured at 31MB of build output versus 3.7MB. Frames size themselves from
+   the rendered image instead; see .media-frame in the styles below. */
+---
+
+<div
+  class="popup"
+  data-popup={study.key}
+  data-next-study={next.hasCaseStudy ? next.key : undefined}
+  data-prev-study={prev}
+  hidden
+  aria-hidden="true"
+>
+  <div
+    class="popup__panel"
+    data-popup-panel
+    role="dialog"
+    aria-modal="true"
+    aria-label={`${study.title.replace(/\.$/, "")} case study`}
+  >
+    <header class="popup__bar">
+      <button class="icon-button" type="button" data-popup-close aria-label="Close case study">
+        <span
+          class="icon-button__glyph"
+          set:html={inlineSvg(closeLarge, `popup-close-${study.key}`)}
+        />
+      </button>
+
+      {/* Figma Frame 169. When the next project has a case study of its own the
+          pill swaps this popup for that one; otherwise it is a plain label,
+          because a link that goes nowhere is worse than no link. */}
+      <div class="popup__next">
+        <span class="popup__next-label">Next</span>
+        {
+          next.hasCaseStudy ? (
+            <button class="tag-pill" type="button" data-open-case-study={next.key}>
+              {next.title}
+            </button>
+          ) : (
+            <span class="tag-pill">{next.title}</span>
+          )
+        }
+      </div>
+    </header>
+
+    <div class="popup__scroll" data-popup-scroll>
+      <div class="popup__intro">
+        <p class="popup__lede">
+          <strong>{study.title}</strong>{" "}
+          <span>{study.lede}</span>
+        </p>
+        <p class="popup__kicker">{study.kicker}</p>
+      </div>
+
+      <div class="popup__body">
+        <div class="popup__media">
+          {
+            /* One ordered pass: uploaded rows and every built slot take their
+               Figma position from `order`, so the column reads top-to-bottom
+               exactly as the file does. */
+            mediaColumn.map((item) =>
+              item.kind === "doodles" ? (
+                /* Framed like the photographs so the column reads as one
+                   consistent stack rather than a floating loose block. */
+                <figure class="media-frame">
+                  <Doodles />
+                </figure>
+              ) : item.kind === "strip" && study.strip ? (
+                <MediaStrip
+                  study={study.key}
+                  strip={study.strip}
+                  label={
+                    study.key === "dwa"
+                      ? "Book spread"
+                      : study.key === "bees"
+                        ? "Interface screen"
+                        : "Sketch"
+                  }
+                />
+              ) : item.kind === "placeholder" ? (
+                /* Marked rather than faked, so an empty slot is never mistaken
+                   for a finished section. */
+                <figure class="media-frame media-frame--placeholder">
+                  <span class="media-frame__note">
+                    <strong>{item.name}</strong>
+                    <span>{item.node} · {item.size}</span>
+                  </span>
+                </figure>
+              ) : item.kind === "svg" ? (
+                /* Figma exports this frame as one vector, background included,
+                   so it needs no .media-frame border of its own — the artwork
+                   already carries the card. */
+                <figure
+                  class="media-svg"
+                  role="img"
+                  aria-label={item.alt}
+                  data-motion={item.motion}
+                  set:html={inlineSvg(item.svg, `cs-${study.key}-${item.at}`)}
+                />
+              ) : item.kind === "palette" ? (
+                <section
+                  class="palette"
+                  data-palette
+                  aria-label="Colour palette — drag or use arrow keys to reorder"
+                  style={`--card: ${paletteCard}%; --overlap: ${paletteOverlap}%;`}
+                >
+                  {study.palette.map((swatch) => (
+                    <div
+                      class="palette__card"
+                      data-palette-card
+                      tabindex="0"
+                      role="button"
+                      aria-label={`${
+                        swatch.label ?? "Paper stock"
+                      }. Drag, or press the left and right arrow keys to reorder.`}
+                      style={`--swatch: ${swatch.hex ? `#${swatch.hex}` : "transparent"}; --ink: ${swatch.ink};`}
+                    >
+                      {swatch.image && (
+                        <Image
+                          class="palette__image"
+                          src={swatch.image}
+                          alt=""
+                          width={900}
+                          widths={[450, 900]}
+                          sizes="20vw"
+                          loading="lazy"
+                        />
+                      )}
+                      {swatch.label && <span class="palette__hex">{swatch.label}</span>}
+                    </div>
+                  ))}
+                </section>
+              ) : (
+                /* A row of one is a full-width frame; a row of more splits the
+                   width evenly, which is Figma's paired-frame layout. */
+                <div class:list={["media-row", { "media-row--split": item.images.length > 1 }]}>
+                  {item.images.map((image) => (
+                    <figure
+                      class:list={["media-frame", { "media-frame--contain": image.fit === "contain" }]}
+                      style={image.crop ? `--crop: ${image.crop};` : undefined}
+                    >
+                      {image.media === "video" ? (
+                        /* Muted + playsinline are what let it autoplay at all —
+                           browsers block sound-on autoplay, and without
+                           playsinline iOS takes the video fullscreen. It is
+                           silent decoration in a reading column, so it carries
+                           no controls; project-popup.ts pauses it and gives it
+                           controls under prefers-reduced-motion. */
+                        <video
+                          src={image.src}
+                          autoplay
+                          muted
+                          loop
+                          playsinline
+                          preload="metadata"
+                          aria-label={image.name}
+                        />
+                      ) : (
+                        /* `width` is essential here, not decorative. Without it Astro
+                           takes the source's intrinsic size for the plain `src` — a
+                           9504px export produced a 3.1MB fallback that shipped in the
+                           build and is what any browser without srcset support would
+                           download. Capping at 2064 (2x the 1008px display size) keeps
+                           the fallback in step with the srcset. */
+                        <Image
+                          src={image.src}
+                          alt={image.name}
+                          width={2064}
+                          widths={[720, 1080, 1440, 2064]}
+                          /* Measured off the rendered frame, not derived from
+                             the percentages — the popup expands to full bleed
+                             after a little scrolling, and readers spend nearly
+                             all their time in that state, where the column is
+                             65.6vw rather than the windowed 58vw. Stacked below
+                             900px it is 95.6vw; the old flat 58vw understated
+                             that by a third, so phones pulled a variant far too
+                             small and upscaled it. Rounded UP on purpose: too
+                             large only costs a step in the srcset, too small
+                             shows as a soft image. */
+                          sizes="(max-width: 900px) 96vw, 66vw"
+                          loading="lazy"
+                        />
+                      )}
+                      {/* No <Shine /> here on purpose. The gallery cards use it as
+                          an invitation to click through; inside the case study the
+                          images are the content being read, and a sweep crossing
+                          them competes with that. */}
+                    </figure>
+                  ))}
+                </div>
+              ),
+            )
+          }
+
+        </div>
+
+        <div class="popup__aside">
+          {
+            study.panels.map(({ key, title, open, body, tight }) => (
+              <section class="panel" data-panel data-open={open ? "" : undefined}>
+                <button class="panel__head" type="button" data-panel-toggle aria-expanded={open}>
+                  <span class="panel__title">{title}</span>
+                  {/* Namespaced by study as well as panel: both popups are in
+                      the same document, so `ac-context` alone would collide. */}
+                  <span class="panel__icon" data-panel-icon-open>
+                    <Fragment set:html={inlineSvg(accordionClose, `ac-${study.key}-${key}`)} />
+                  </span>
+                  <span class="panel__icon" data-panel-icon-closed>
+                    <Fragment set:html={inlineSvg(accordionOpen, `ao-${study.key}-${key}`)} />
+                  </span>
+                </button>
+                {body.length > 0 && (
+                  <div class:list={["panel__body", { "panel__body--tight": tight }]} data-panel-body>
+                    {body.map((paragraph) => (
+                      <p>
+                        {paragraph.map((run) =>
+                          run.italic ? <em>{run.text}</em> : <Fragment>{run.text}</Fragment>,
+                        )}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </section>
+            ))
+          }
+
+          {
+            /* Its own section in the column, after the last panel — a way out
+               of the case study rather than a fact inside one. Opens in a new
+               tab: this is a modal the reader cannot navigate back into, so
+               replacing it would strand them. */
+            study.link && (
+              <a
+                class="aside-link"
+                href={study.link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span class="aside-link__blob-anchor" aria-hidden="true">
+                  <span
+                    class="aside-link__blob"
+                    set:html={inlineSvg(blobLink, `lkb-${study.key}`)}
+                  />
+                </span>
+                <span class="aside-link__text">{study.link.label}</span>
+                <span
+                  class="aside-link__arrow"
+                  set:html={inlineSvg(arrowOutward, `lk-${study.key}`)}
+                />
+              </a>
+            )
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .popup {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    /* No backdrop tint: Figma keeps the page's grid and confetti fully visible
+       through the window, so the popup darkens nothing. */
+    pointer-events: none;
+  }
+
+  .popup[hidden] {
+    display: none;
+  }
+
+  /* Figma Frame 142 — inset 65/92 of the 1728x1117 canvas. The custom
+     properties are what the expand animation drives toward 0. */
+  .popup__panel {
+    --inset-x: 3.7616%;
+    --inset-y: 8.2364%;
+    --panel-radius: 45px;
+
+    position: absolute;
+    left: var(--inset-x);
+    right: var(--inset-x);
+    top: var(--inset-y);
+    bottom: var(--inset-y);
+
+    display: flex;
+    flex-direction: column;
+    /* Transparent on purpose — see the component comment. */
+    background: transparent;
+    border: var(--border-bold) solid var(--color-ink);
+    border-radius: var(--panel-radius);
+    overflow: hidden;
+    pointer-events: auto;
+  }
+
+  /* ---------- Header ---------- */
+
+  .popup__bar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    /* Figma: 55px sides, 48px top within the panel. The bottom value is not
+       from Figma — the bar sits directly above the scroll area, so without it
+       content runs up against the bar as soon as the reader scrolls. */
+    padding: 3.06% 3.44% 3.5%;
+  }
+
+  .icon-button {
+    display: grid;
+    place-items: center;
+    width: 51.77px;
+    height: 51.77px;
+    background: var(--color-paper);
+    border: var(--border-bold) solid var(--color-ink);
+    border-radius: var(--radius-pill);
+    cursor: inherit;
+  }
+
+  .icon-button__glyph {
+    display: block;
+    width: 20.23px;
+    height: 20.12px;
+  }
+
+  .icon-button__glyph :global(svg) {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .popup__next {
+    display: flex;
+    align-items: center;
+    /* Figma gap 34. */
+    gap: 34px;
+  }
+
+  .popup__next-label,
+  .tag-pill {
+    font-size: var(--text-nav);
+    line-height: calc(24 / 18);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-nav);
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--color-ink);
+  }
+
+  .tag-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: calc(var(--space-3) - var(--border-bold))
+      calc(var(--space-4) - var(--border-bold));
+    background: var(--color-paper);
+    border: var(--border-bold) solid var(--color-ink);
+    border-radius: var(--radius-pill);
+  }
+
+  /* ---------- Scrolling content ---------- */
+
+  .popup__scroll {
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+
+  .popup__scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .popup__intro {
+    /* Figma: 177.5 side margins within the 1598 panel, 279.77 from its top. */
+    margin: 14.5% 11.1% 0;
+    display: flex;
+    flex-direction: column;
+    gap: 38px;
+    color: var(--color-ink);
+  }
+
+  .popup__lede {
+    /* Figma 45px at the 1728 canvas, line-height 1.5. */
+    font-size: clamp(1.25rem, 2.6042cqw, 45px);
+    line-height: 1.5;
+    font-weight: var(--weight-medium);
+  }
+
+  .popup__lede strong {
+    font-weight: var(--weight-bold);
+    text-transform: uppercase;
+  }
+
+  .popup__kicker {
+    font-size: clamp(0.875rem, 1.4468cqw, 25px);
+    font-weight: var(--weight-medium);
+  }
+
+  .popup__body {
+    display: flex;
+    align-items: flex-start;
+    /* Figma: 1008 + 58 gap + 506 within the 1572 content width. */
+    gap: 3.69%;
+    /* The bottom is deliberately far larger than Figma's 6%. That edge is
+       where the next study is hauled up from, and with the last image sitting
+       tight against it the incoming panel appeared to grow straight out of the
+       artwork. The run-out gives the study an ending before the next one
+       starts arriving. */
+    margin: 5.2% 0.8% 16%;
+  }
+
+  .popup__media {
+    width: 64.12%;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+  }
+
+  .popup__aside {
+    width: 32.19%;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    /* Figma gap 16. */
+    gap: 16px;
+
+    /* Pinned under the top bar while the media column scrolls past. `top: 0`
+       is the top of .popup__scroll, and the bar is a sibling of that scroller
+       rather than inside it — so zero already means "just below the bar".
+       The height cap is what makes pinning safe: the longest panel open runs
+       past the viewport, and a pinned column taller than its own viewport puts
+       its bottom permanently out of reach. --aside-max is kept in sync with
+       the scroller's height in scripts/motion/project-popup.ts. */
+    position: sticky;
+    top: 0;
+    max-height: var(--aside-max, 100dvh);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+
+  .popup__aside::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ---------- Media ---------- */
+
+  /* Figma Frame 172 — two 460x690 frames in a 1004 row, 36px apart. Expressed
+     as a gap plus equal flex so the pair keeps its ratio at any column width;
+     a row of one collapses to a plain full-width frame. */
+  .media-row {
+    display: flex;
+    gap: 3.586%;
+  }
+
+  .media-row--split > .media-frame {
+    flex: 1;
+    min-width: 0;
+    /* The pair's frames are taller than they are wide, unlike every other
+       frame in the column, and they carry no intrinsic sizing of their own
+       once flex has narrowed them. */
+    aspect-ratio: 460 / 690;
+  }
+
+  /* Deliberately more specific than the `height: auto` on .media-frame img
+     below, which otherwise wins on source order and lets a photo whose aspect
+     does not happen to match 460/690 fall short of the frame — leaving a white
+     band under it. Only the one whose ratio matched exactly looked right. */
+  .media-row--split .media-frame :global(img),
+  .media-row--split .media-frame :global(video) {
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* A frame Figma exports as a single vector — artwork, background and corner
+     radius in one path set. It needs no border or fill of its own. */
+  .media-svg {
+    margin: 0;
+    width: 100%;
+    line-height: 0;
+  }
+
+  .media-svg :global(svg) {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .media-frame {
+    position: relative;
+    margin: 0;
+    width: 100%;
+    /* Every card in the column is 1008 x 690 in Figma regardless of what is
+       inside it, so the frame — not the artwork — decides the height. Letting
+       each frame take its height from its own image made the column ragged:
+       one portrait photograph among landscapes rendered half again as tall as
+       its neighbours.
+
+       Fixing the ratio here also means the component never reads a source's
+       dimensions, which matters — touching any ImageMetadata property makes
+       Vite emit the untouched original into the build. */
+    aspect-ratio: 1008 / 690;
+    border: max(2px, 0.3035cqw) solid var(--color-ink);
+    border-radius: max(10px, 1.4468cqw);
+    background: var(--color-paper);
+    overflow: hidden;
+  }
+
+  .media-frame :global(img),
+  .media-frame :global(video) {
+    display: block;
+    /* Fills the frame and crops to it, centred — so a portrait photograph and
+       a landscape one occupy the same card and neither is letterboxed. */
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: var(--fit, cover);
+    /* Centred unless the study names a better focal point for this slot —
+       see CaseStudy.crop. */
+    object-position: var(--crop, center);
+    /* Some exports (Frame 179, Frame 180) have the card's rounded corners
+       baked into the bitmap. Sitting flush, their arcs are tighter than this
+       frame's radius, so the frame's white background showed through at each
+       corner. A slight overscale pushes those arcs past the frame's clip, so
+       the visible edge is always solid artwork.
+       Harmless on the square-edged photographs: it trims ~2% a side, and the
+       frame clips the overflow either way. */
+    transform: scale(1.05);
+    transform-origin: center;
+  }
+
+  /* A frame holding something that must not be cropped — a screen recording,
+     where the sliced edge would be part of an interface. The media is fitted
+     whole and this black ground fills the rest, so the frame still reads as one
+     solid card rather than as an image floating on paper. */
+  .media-frame--contain {
+    --fit: contain;
+    background: #000;
+  }
+
+  /* The 1.05 overscale below exists to hide corners baked into a bitmap. It
+     would defeat `contain` outright — scaling past the frame is exactly the
+     cropping this is here to avoid — and a fitted recording has no baked
+     corners to hide anyway. */
+  .media-frame--contain :global(img),
+  .media-frame--contain :global(video) {
+    transform: none;
+  }
+
+  /* Frames whose bitmaps are not exported yet. Marked rather than faked, so an
+     empty slot is never mistaken for a finished section. */
+  .media-frame--placeholder {
+    display: grid;
+    place-items: center;
+    background: repeating-linear-gradient(
+      45deg,
+      rgb(0 0 0 / 0.03) 0 12px,
+      transparent 12px 24px
+    );
+  }
+
+  .media-frame__note {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    font-size: clamp(0.75rem, 1.0417cqw, 18px);
+    font-weight: var(--weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: center;
+    color: rgb(0 0 0 / 0.35);
+  }
+
+  .media-frame__note span {
+    font-weight: var(--weight-medium);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.8em;
+    color: rgb(0 0 0 / 0.25);
+  }
+
+  /* ---------- Colour palette (Figma 1790:5832) ---------- */
+
+  .palette {
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+
+  /* Width and overlap both come from the study — see the derivation in the
+     frontmatter. The fallbacks are the three-card case. */
+  .palette__card {
+    position: relative;
+    flex-shrink: 0;
+    width: var(--card, 44.732%);
+    aspect-ratio: 450 / 567;
+    background: var(--swatch);
+    border: var(--border-bold) solid var(--color-ink);
+    border-radius: max(10px, 1.4468cqw);
+    overflow: hidden;
+
+    /* The custom plus, turned 45deg — see --cursor-grab. Drag has no visual
+       affordance of its own, so the pointer is the signal; the lift on hover
+       reinforces it but would not teach it alone. Two declarations so the
+       retina asset is used where image-set() is supported in `cursor`. */
+    cursor: var(--cursor-grab);
+    cursor: var(--cursor-grab-hidpi);
+    /* Without this, a touch drag scrolls the case study instead of moving
+       the card. */
+    touch-action: none;
+    /* GSAP owns transform for the lift and drag offset. */
+    will-change: transform;
+  }
+
+  .palette__card[data-dragging] {
+    cursor: grabbing;
+    /* Held card rides above its neighbours regardless of source order. */
+    z-index: 1;
+  }
+
+  .palette__card:focus-visible {
+    /* Sits inside the card so the outline is not clipped by the overlap. */
+    outline: var(--border-bold) solid var(--color-ink);
+    outline-offset: -8px;
+  }
+
+  .palette__card:not(:last-child) {
+    margin-right: calc(-1 * var(--overlap, 17.098%));
+  }
+
+  /* Figma's source order puts each card above the one before it, which is what
+     makes the overlap read left-to-right. Flex paints in DOM order, so this
+     needs no z-index — but the cards must not be reordered. */
+
+  /* A swatch that is a photograph rather than a fill — DWA's cotton stock. */
+  .palette__image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  .palette__hex {
+    position: absolute;
+    /* 50 / 450 across, 480 / 567 down, inside the card. */
+    left: 11.111%;
+    top: 84.656%;
+    font-size: clamp(0.75rem, 1.4468cqw, 25px);
+    line-height: calc(34 / 25);
+    font-weight: var(--weight-bold);
+    white-space: nowrap;
+    color: var(--ink);
+  }
+
+  /* ---------- Accordion ---------- */
+
+  .panel {
+    background: var(--color-paper);
+    /* Figma thickens the stroke when a panel opens. */
+    border: 1.5px solid var(--color-ink);
+    border-radius: 45px;
+    overflow: hidden;
+
+    /* Essential, not tidying. The aside is a flex column with a height cap, and
+       flex items shrink by default — so once the panels exceeded that cap, the
+       open one was squashed and `overflow: hidden` clipped its own bottom
+       padding off. The padding was never wrong; the panel was too short.
+       Holding natural height makes the aside scroll instead, which is what the
+       cap and overflow-y were there for. */
+    flex-shrink: 0;
+  }
+
+  .panel[data-open] {
+    border-width: var(--border-bold);
+  }
+
+  /* Padding is proportional to the panel, not the fixed px Figma specifies.
+     Those numbers were drawn against a 506px-wide frame; this column is
+     narrower on most screens, so fixed padding ate a much larger share of the
+     width than the design intends. Percentages hold the design's ratio at any
+     width — and are pulled in from it, which is what stops the copy feeling
+     boxed in.
+
+     Deliberately IDENTICAL open and closed. The head keeping its padding
+     through the toggle is what lets the body animate its height without the
+     header shifting underneath it. */
+  .panel__head {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: 4.2% 7%;
+    text-align: left;
+    cursor: inherit;
+  }
+
+  .panel__title {
+    font-size: clamp(0.875rem, 1.4468cqw, 25px);
+    line-height: calc(34 / 25);
+    font-weight: var(--weight-bold);
+    text-transform: uppercase;
+    color: var(--color-ink);
+  }
+
+  .panel__icon {
+    flex-shrink: 0;
+    width: 31px;
+    height: 31px;
+  }
+
+  .panel__icon :global(svg) {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  /* Only one icon shows at a time — X when open, plus when closed. */
+  .panel[data-open] [data-panel-icon-closed],
+  .panel:not([data-open]) [data-panel-icon-open] {
+    display: none;
+  }
+
+  .panel__body {
+    /* No top padding: the head's own bottom padding is the gap. Adding one
+       here would double it, and would also have to animate on toggle. */
+    padding: 0 7% 6%;
+    font-size: clamp(0.75rem, 0.926cqw, 16px);
+    line-height: 1.45;
+    font-weight: var(--weight-medium);
+    color: var(--color-ink);
+    /* Height is animated open and closed, so the copy must clip while moving. */
+    overflow: hidden;
+  }
+
+  .panel__body p + p {
+    /* Figma separates prose paragraphs with a blank line. */
+    margin-top: 1.4em;
+  }
+
+  /* Credit lines run consecutively with no blank line between them. */
+  .panel__body--tight p + p {
+    margin-top: 0;
+  }
+
+  .panel:not([data-open]) .panel__body {
+    display: none;
+  }
+
+  .panel__body em {
+    font-style: italic;
+  }
+
+  /* Figma Link (1825:6364) — 18.556px medium, 3px stroke, 36px radius,
+     13.387/17.615 padding, 12px gap. Inline-flex so the pill hugs its label
+     rather than stretching across the panel. */
+  .aside-link {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65em;
+    /* The aside stretches its children to full width and can shrink them; a
+       pill should hug its label and hold its height like the panels do. The
+       column's own 16px gap handles the spacing above it. */
+    align-self: flex-start;
+    flex-shrink: 0;
+    padding: 0.72em 0.95em;
+    background: var(--color-paper);
+    /* 1.5px to match a CLOSED panel, not Figma's 3px on this node. It sits in
+       the same column as those panels, and the heavier stroke made it read as
+       an open one — the accordion uses that weight to mean "this is the panel
+       you are in". */
+    border: 1.5px solid var(--color-ink);
+    border-radius: var(--radius-pill);
+    font-size: clamp(0.75rem, 1.0738cqw, 18.556px);
+    line-height: 1;
+    font-weight: var(--weight-medium);
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--color-ink);
+    text-decoration: none;
+    cursor: inherit;
+  }
+
+  /* link-hover (1827:6370): the outlined pill gives way entirely to a yellow
+     blob behind the label — no border, no white fill. The label stays ink, so
+     only the ground changes. */
+  .aside-link:hover,
+  .aside-link:focus-visible {
+    background: transparent;
+    border-color: transparent;
+  }
+
+  .aside-link:hover .aside-link__blob,
+  .aside-link:focus-visible .aside-link__blob {
+    opacity: 1;
+  }
+
+  /* The blob is WIDER than the pill it replaces, so it is centred by a wrapper
+     that takes its size from the blob's own aspect — the same arrangement the
+     nav uses, and for the same reason: an over-wide absolutely positioned box
+     cannot be centred with `margin: auto`. */
+  .aside-link__blob-anchor {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 0;
+    height: 100%;
+    aspect-ratio: 112.473 / 48;
+    pointer-events: none;
+  }
+
+  .aside-link__blob {
+    display: block;
+    width: 100%;
+    height: 100%;
+    /* Hidden until hover; also means a failure leaves the plain pill rather
+       than a blob stacked over it. */
+    opacity: 0;
+    transition: opacity 0.14s ease-out;
+  }
+
+  .aside-link__blob :global(svg) {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  /* Above the blob, which is painted behind them. */
+  .aside-link__text,
+  .aside-link__arrow {
+    position: relative;
+    z-index: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .aside-link__blob {
+      transition: none;
+    }
+  }
+
+  .aside-link__arrow {
+    display: block;
+    width: 0.714em;
+    height: 0.714em;
+  }
+
+  .aside-link__arrow :global(svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  /* The export hard-codes #1C1B1F; following the label lets the icon invert
+     with the pill on hover. */
+  .aside-link__arrow :global(path) {
+    fill: currentColor;
+  }
+
+  /* ---------- Tablet and below ---------- */
+  /*
+   * The desktop spacing is all percentages of the panel, which holds the
+   * design's ratios on a wide screen but turns punishing as the panel narrows:
+   * an 11% side margin is 150px of a 1400px panel and still 40px of a 360px
+   * one, except now it is eating a third of the readable width. Everything
+   * below trades those ratios for much tighter values.
+   */
+  @media (max-width: 900px) {
+    .popup__panel {
+      /* The window frame itself claims less of a small screen. */
+      --inset-x: 2.5%;
+      --inset-y: 3%;
+      --panel-radius: 26px;
+    }
+
+    .popup__bar {
+      padding: 4% 4.5% 4.5%;
+    }
+
+    .popup__intro {
+      margin: 7% 4.5% 0;
+      gap: 20px;
+    }
+
+    .popup__body {
+      flex-direction: column;
+      margin: 7% 4.5% 20%;
+      /* Stacked, the information sits directly under the last image, so it
+         needs a clear break rather than the tight column gutter it inherits.
+         Fixed rather than a percentage: a column gap in percent resolves
+         against the container's block size, which is content-derived here. */
+      gap: 4rem;
+    }
+
+    .popup__media,
+    .popup__aside {
+      width: 100%;
+    }
+
+    .popup__aside {
+      /* Pinning only makes sense beside a scrolling column. Stacked, it would
+         cover the images it is meant to sit below. */
+      position: static;
+      max-height: none;
+      overflow: visible;
+    }
+
+    .panel {
+      /* 45px reads as a lozenge once the panel is phone-width. */
+      border-radius: 28px;
+    }
+
+    /* Fixed units, not percentages. Stacked, the panel goes from a one-third
+       column to full width, so the same percentage resolves to a LARGER number
+       than on desktop — measured 37px against desktop's 29px, the opposite of
+       what a narrow screen needs. */
+    .panel__head {
+      padding: 1.1rem 1.5rem;
+    }
+
+    .panel__body {
+      padding: 0 1.5rem 1.5rem;
+    }
+  }
+
+  /* ---------- Phone ---------- */
+  @media (max-width: 560px) {
+    .popup__panel {
+      --inset-x: 1.5%;
+      --inset-y: 2%;
+      --panel-radius: 20px;
+    }
+
+    .popup__intro {
+      margin: 8% 4% 0;
+      gap: 14px;
+    }
+
+    .popup__body {
+      margin: 8% 4% 22%;
+      gap: 3.25rem;
+    }
+
+    .panel {
+      border-radius: 22px;
+    }
+
+    .panel__head {
+      padding: 0.9rem 1.15rem;
+    }
+
+    .panel__body {
+      padding: 0 1.15rem 1.15rem;
+    }
+  }
+</style>

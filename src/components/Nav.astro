@@ -1,0 +1,194 @@
+---
+import { inlineSvg } from "../lib/svg";
+
+import blobProjects from "../assets/nav/blob-projects.svg?raw";
+import blobPlay from "../assets/nav/blob-play.svg?raw";
+import blobContact from "../assets/nav/blob-contact.svg?raw";
+
+/**
+ * Hero navigation pills and their hover states.
+ *
+ * Figma: Nav-Regular (1717:290), Nav-Projects-Hover (1717:298),
+ * Nav-Play-Hover (1717:306), Nav-Contact-Hover (1717:325).
+ *
+ * On hover the white pill is replaced by a coloured blob and the whole button
+ * tilts. Rather than swapping elements — which would reflow the nav, since
+ * every blob is wider than the pill it replaces — both layers are stacked and
+ * cross-faded. The nav's geometry never changes, so neighbouring buttons hold
+ * still.
+ *
+ * Every blob is exactly 48px tall, the same as the pill, so `height: 100%`
+ * plus the blob's own aspect ratio reproduces Figma's width with no per-button
+ * magic numbers.
+ */
+
+interface Props {
+  /** Key of the page currently open — that pill renders permanently blobbed. */
+  active?: string;
+}
+
+const { active } = Astro.props;
+
+const LINKS = [
+  {
+    key: "projects",
+    label: "Projects",
+    href: "/projects",
+    blob: blobProjects,
+    aspect: "130.314 / 48",
+    rotate: -10.56,
+  },
+  {
+    key: "play",
+    label: "Play",
+    href: "/play",
+    blob: blobPlay,
+    aspect: "95.4717 / 48",
+    rotate: 11.69,
+  },
+  {
+    key: "contact",
+    label: "Contact",
+    href: "#contact",
+    blob: blobContact,
+    aspect: "130.314 / 48",
+    // Figma leaves Contact upright — only the shape swaps.
+    rotate: 0,
+  },
+];
+---
+
+<nav class="nav" aria-label="Primary" data-nav>
+  <ul class="nav__list">
+    {
+      LINKS.map(({ key, label, href, blob, aspect, rotate }) => (
+        <li>
+          <a
+            class="nav__pill"
+            href={href}
+            data-nav-item
+            data-rotate={rotate}
+            data-active={key === active ? "" : undefined}
+            aria-current={key === active ? "page" : undefined}
+            data-sfx-hover
+            data-sfx-click
+            {/* Contact is a dialog, not a page — see scripts/motion/contact-pod.ts. */}
+            data-contact-open={key === "contact" ? "" : undefined}
+            {/* No launch when the pill points at the page already open. */}
+            data-transition={href.startsWith("/") && key !== active ? "" : undefined}
+            style={`--blob-aspect: ${aspect};`}
+          >
+            <span class="nav__bg" data-nav-bg aria-hidden="true" />
+            <span class="nav__blob-anchor" aria-hidden="true">
+              <span
+                class="nav__blob"
+                data-nav-blob
+                set:html={inlineSvg(blob, `nav-${key}`)}
+              />
+            </span>
+            <span class="nav__label">{label}</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</nav>
+
+<style>
+  .nav {
+    position: absolute;
+    left: 50%;
+    /* 99 / 1117 of canvas height. */
+    top: 8.8631%;
+    transform: translateX(-50%);
+    z-index: var(--layer-ui);
+  }
+
+  .nav__list {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .nav__pill {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Plain Figma padding. The border now lives on .nav__bg, which is taken
+       out of flow, so it no longer inflates the box and the earlier
+       subtract-the-border workaround is gone. 93 + 16 + 16 = 125. */
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--text-nav);
+    /* Figma reports a 24px text box at 18px; `normal` runs taller in Satoshi
+       and would push the pill past 48px. */
+    line-height: calc(24 / 18);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-nav);
+    text-transform: uppercase;
+    white-space: nowrap;
+    /* Keeps the custom plus cursor over links instead of the system hand. */
+    cursor: inherit;
+    will-change: transform;
+  }
+
+  /* Resting state: white fill, 3px black stroke. Absolutely positioned so the
+     border is drawn inside the 125x48 box, matching Figma's inside stroke. */
+  .nav__bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: var(--color-paper);
+    border: var(--border-bold) solid var(--color-ink);
+    border-radius: var(--radius-pill);
+  }
+
+  /* Centring wrapper.
+     Every blob is WIDER than the pill it covers, which breaks the usual ways
+     of centring an absolutely positioned box — both were tried and measured:
+
+     - `inset: 0` + `margin: auto` left-aligns. Per CSS 2.1 section 10.3.7,
+       when the box is wider than its containing block the equal-margin
+       solution is negative, so the browser zeroes margin-left and solves for
+       margin-right instead.
+     - Grid/flex `place-items: center` also left-aligns, because alignment
+       falls back to start when the item overflows its area.
+
+     Both left every label off-centre by exactly half the overflow. So the
+     wrapper carries `translateX(-50%)` and takes its size from the blob's
+     aspect ratio, which centres deterministically at any width. GSAP animates
+     the inner .nav__blob only, so this transform is never disturbed. */
+  .nav__blob-anchor {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1;
+    height: 100%;
+    aspect-ratio: var(--blob-aspect);
+    pointer-events: none;
+  }
+
+  .nav__blob {
+    display: block;
+    width: 100%;
+    height: 100%;
+    /* Hidden by default so a JS failure leaves the plain pill, not a blob
+       stacked on top of it. GSAP takes over from here. */
+    opacity: 0;
+  }
+
+  .nav__blob :global(svg) {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .nav__label {
+    position: relative;
+    z-index: 2;
+  }
+</style>

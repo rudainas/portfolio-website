@@ -1,0 +1,281 @@
+---
+import type { ImageMetadata } from "astro";
+import { Image } from "astro:assets";
+import Shine from "./Shine.astro";
+import { CELL, PIECES, FALLBACK_SLOT, captionFromFile, type Slot } from "../data/play";
+
+/**
+ * Play field — Figma Play (1525:3680).
+ *
+ * An endless plane of work. Figma draws one screen of it; that screen is a
+ * CELL which repeats in every direction, so scrolling or dragging never runs
+ * out of page.
+ *
+ * The endlessness is tiling rather than cloning on the fly: the cell is
+ * rendered nine times in a 3x3 block, and the block's offset is wrapped modulo
+ * the cell size (see scripts/motion/play-field.ts). Nine is what it takes to
+ * cover any viewport at any offset — with four, a corner of empty page shows
+ * through on a wide screen.
+ *
+ * Pieces keep their own proportions. Their height is NOT specified: it comes
+ * from the artwork, which is why nothing here reads a source's dimensions —
+ * touching an ImageMetadata property makes Vite emit the untouched original
+ * alongside the optimised variants.
+ */
+
+const stills = import.meta.glob<{ default: ImageMetadata }>(
+  "../assets/play/photos/*.{jpg,jpeg,png,webp,avif}",
+  { eager: true },
+);
+
+/* Video cannot go through `astro:assets` — that pipeline is images only — so
+   these are emitted as plain hashed URLs and ship at whatever size they were
+   exported at. */
+const clips = import.meta.glob<string>("../assets/play/photos/*.{mp4,webm}", {
+  eager: true,
+  query: "?url",
+  import: "default",
+});
+
+type Entry =
+  | { kind: "image"; src: ImageMetadata; caption: string; href?: string; slot: Slot }
+  | { kind: "video"; src: string; caption: string; href?: string; slot: Slot };
+
+const baseOf = (path: string) => path.split("/").pop()!.replace(/\.[^.]+$/, "");
+const detailsFor = (base: string) => PIECES.find((piece) => piece.file === base);
+
+const entries: Entry[] = [
+  ...Object.keys(stills).map((path) => {
+    const base = baseOf(path);
+    const listed = detailsFor(base);
+    return {
+      kind: "image" as const,
+      src: stills[path].default,
+      caption: listed?.caption ?? captionFromFile(base),
+      href: listed?.href,
+      slot: listed?.slot ?? FALLBACK_SLOT,
+    };
+  }),
+  ...Object.keys(clips).map((path) => {
+    const base = baseOf(path);
+    const listed = detailsFor(base);
+    return {
+      kind: "video" as const,
+      src: clips[path],
+      caption: listed?.caption ?? captionFromFile(base),
+      href: listed?.href,
+      slot: listed?.slot ?? FALLBACK_SLOT,
+    };
+  }),
+]
+  // Figma's stacking order, so the layout is stable rather than alphabetical.
+  .sort(
+    (a, b) =>
+      PIECES.findIndex((p) => p.caption === a.caption) -
+      PIECES.findIndex((p) => p.caption === b.caption),
+  );
+
+/** 3x3, centred on the origin tile. */
+const TILES = [-1, 0, 1].flatMap((row) => [-1, 0, 1].map((col) => ({ row, col })));
+
+const pct = (value: number, of: number) => `${(value / of) * 100}%`;
+---
+
+<div class="field" data-play-field style="--tile-scale: 1.55;">
+  {/* Moved as one by the drag/scroll handler; the tiles inside never move. */}
+  <div class="field__plane" data-play-plane>
+    {
+      TILES.map(({ row, col }) => (
+        <div
+          class="field__tile"
+          style={`--tx: ${col}; --ty: ${row};`}
+          /* Only the middle tile is read out; the other eight are the same
+             work again and would just repeat themselves to a screen reader. */
+          aria-hidden={row === 0 && col === 0 ? undefined : "true"}
+        >
+          {entries.map((entry, index) => (
+            <figure
+              class="piece"
+              data-piece
+              data-depth={entry.slot.depth}
+              data-drift={index}
+              style={`left: ${pct(entry.slot.x, CELL.width)}; top: ${pct(entry.slot.y, CELL.height)}; width: ${pct(entry.slot.width, CELL.width)};`}
+            >
+              <div class="piece__frame">
+                {entry.kind === "video" ? (
+                  /* Muted and playsinline are what let it autoplay at all;
+                     without playsinline iOS takes it fullscreen. */
+                  <video
+                    src={entry.src}
+                    autoplay
+                    muted
+                    loop
+                    playsinline
+                    preload="metadata"
+                    aria-label={entry.caption}
+                  />
+                ) : (
+                  <Image
+                    src={entry.src}
+                    alt={entry.caption}
+                    width={900}
+                    widths={[450, 900]}
+                    sizes="22vw"
+                    loading="lazy"
+                    draggable="false"
+                  />
+                )}
+                <Shine />
+              </div>
+
+              <figcaption class="piece__caption">
+                {entry.href ? (
+                  /* Live work opens in its own tab — the field has no history
+                     to come back to, and leaving would lose the reader's place
+                     on an endless plane. The underline is what marks it. */
+                  <a href={entry.href} target="_blank" rel="noopener noreferrer">
+                    {entry.caption}
+                  </a>
+                ) : (
+                  entry.caption
+                )}
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      ))
+    }
+  </div>
+
+  {
+    entries.length === 0 && (
+      <p class="field__empty">
+        <strong>No play pieces yet</strong>
+        <span>drop images into src/assets/play/photos/</span>
+      </p>
+    )
+  }
+</div>
+
+<style>
+  .field {
+    position: absolute;
+    inset: 0;
+    /* Above the grid, the confetti and the drawings — the work is the subject,
+       and everything else on this page is backdrop. */
+    z-index: var(--layer-wordmark);
+    overflow: hidden;
+    /* The plane is dragged, so a press must not start a text or image
+       selection; touch panning is handled by the script. */
+    user-select: none;
+    touch-action: none;
+  }
+
+  .field__plane {
+    position: absolute;
+    inset: 0;
+    /* GSAP owns this transform. */
+    will-change: transform;
+  }
+
+  /* The tile is deliberately LARGER than the viewport. At exactly one screen,
+     ten pieces sat on top of each other and captions from pieces wrapping
+     across the seam collided with those at the opposite edge. Spreading the
+     same pieces over a bigger tile thins them out and pushes each repeat
+     further away. Kept in step with TILE_SCALE in scripts/motion/play-field.ts
+     — the wrap distance has to match the tile exactly or the loop shows. */
+  .field__tile {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: calc(100% * var(--tile-scale));
+    height: calc(100% * var(--tile-scale));
+    /* Percentages here resolve against the tile's own size, so this steps by
+       exactly one tile whatever the scale. */
+    transform: translate(calc(var(--tx) * 100%), calc(var(--ty) * 100%));
+
+    /* Transparent to the pointer. A tile is a full-size box with nothing in
+       most of it, and the tiles are siblings — so whichever comes last in the
+       DOM sat over its neighbours' pieces and swallowed their clicks. That is
+       what stopped the caption links working. Only the pieces themselves take
+       events now; empty space falls through to the field, which is what drives
+       the drag anyway. */
+    pointer-events: none;
+  }
+
+  .piece {
+    position: absolute;
+    margin: 0;
+    /* Re-enabled for the piece and its caption; see .field__tile above. */
+    pointer-events: auto;
+    /* The float and parallax are applied here by GSAP, so this element may not
+       carry a transform of its own. */
+    will-change: transform;
+  }
+
+  /* No aspect-ratio: the artwork sets the height, so a square logo and a tall
+     poster each keep their own proportions instead of being cropped to a
+     common frame. */
+  .piece__frame {
+    position: relative;
+    width: 100%;
+    border-radius: max(6px, 0.8681cqw);
+    overflow: hidden;
+    line-height: 0;
+  }
+
+  .piece__frame :global(img),
+  .piece__frame :global(video) {
+    display: block;
+    width: 100%;
+    height: auto;
+    -webkit-user-drag: none;
+  }
+
+  .piece__caption {
+    /* Figma: 24 below a 430-tall image. */
+    margin-top: 5.58%;
+    font-size: clamp(0.625rem, 0.9259cqw, 16px);
+    line-height: 1.25;
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-nav);
+    text-transform: uppercase;
+    color: var(--color-ink);
+  }
+
+  .piece__caption a {
+    color: inherit;
+    /* The underline IS the signal that the piece is live. */
+    text-decoration: underline;
+    text-underline-offset: 0.22em;
+    text-decoration-thickness: from-font;
+    cursor: inherit;
+  }
+
+  .piece__caption a:hover,
+  .piece__caption a:focus-visible {
+    text-decoration-thickness: 2px;
+  }
+
+  .field__empty {
+    position: absolute;
+    top: 38%;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+    font-size: clamp(0.75rem, 1.0417cqw, 18px);
+    font-weight: var(--weight-medium);
+    color: rgb(0 0 0 / 0.32);
+  }
+
+  .field__empty strong {
+    font-weight: var(--weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgb(0 0 0 / 0.45);
+  }
+</style>

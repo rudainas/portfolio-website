@@ -1,0 +1,230 @@
+---
+import type { ImageMetadata } from "astro";
+import { Image } from "astro:assets";
+import type { Strip } from "../data/case-studies";
+
+/**
+ * Horizontally scrolling strip of a physical artefact.
+ *
+ *   Basquiat  Frame 200 (1775:1621) — sketches spaced on a yellow card
+ *   DWA       Frame 143 (1796:6146) — seventeen book spreads, overlapping
+ *
+ * One component, because the behaviour is identical: a row wider than its
+ * frame, reachable by dragging or scrolling sideways. Everything that differs
+ * between the two — ground colour, card height, spacing, whether cards overlap
+ * — comes from the study's `strip` config rather than a branch in here.
+ *
+ * Images are picked up from src/assets/strip/<study>/ in filename order, so
+ * adding a page is a matter of dropping a file in.
+ */
+
+type Props = {
+  study: string;
+  strip: Strip;
+  /** Used as the alt prefix; each card appends its position. */
+  label: string;
+};
+
+const { study, strip, label } = Astro.props;
+
+const modules = import.meta.glob<{ default: ImageMetadata }>(
+  "../assets/strip/*/*.{jpg,jpeg,png,webp,avif}",
+  { eager: true },
+);
+
+const images = Object.keys(modules)
+  .filter((path) => path.split("/").at(-2) === study)
+  .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  .map((path) => modules[path].default);
+
+/* Card widths come from Figma rather than from the images. Reading `.width`
+   off an ImageMetadata object makes Vite treat the asset as used at runtime
+   and emit the untouched original into the build — measured at 31MB versus
+   3.7MB earlier in this component. The design is specified in these numbers
+   anyway. */
+const widthAt = (index: number) => strip.widths[index % strip.widths.length];
+
+/**
+ * How wide a card actually renders, as a share of the viewport — the `sizes`
+ * the browser needs to pick a variant.
+ *
+ * Worth deriving rather than hard-coding: a card is sized by its HEIGHT (a
+ * percentage of the frame) and its aspect, so its width falls out of the strip
+ * config. The studies differ wildly — a Basquiat sketch occupies a quarter of
+ * its rail, a Bees screen most of one — and a single flat value served one of
+ * them a variant far too small, which shows as a soft, upscaled image.
+ */
+const [frameW, frameH] = strip.frame.split("/").map((n) => Number(n.trim()));
+const cardHeightFraction = parseFloat(strip.cardHeight) / 100;
+
+/** The media column is ~63vw once the popup expands, ~92vw stacked below 900px. */
+const COLUMN_VW = 63;
+const COLUMN_VW_NARROW = 92;
+
+const sizesFor = (index: number) => {
+  const cardFigmaHeight = frameH * cardHeightFraction;
+  const cardFigmaWidth = cardFigmaHeight * (widthAt(index) / strip.cardWidthBasis);
+  const share = cardFigmaWidth / frameW;
+  return (
+    `(max-width: 900px) ${Math.ceil(share * COLUMN_VW_NARROW)}vw, ` +
+    `${Math.ceil(share * COLUMN_VW)}vw`
+  );
+};
+---
+
+{
+  images.length > 0 ? (
+    <div
+      class="strip"
+      data-sketch-strip
+      style={[
+        `--frame: ${strip.frame}`,
+        `--ground: ${strip.background}`,
+        `--card-h: ${strip.cardHeight}`,
+        `--pad: ${strip.pad}`,
+        `--gap: ${strip.gap}`,
+        strip.radius !== undefined ? `--radius: ${strip.radius}` : "",
+        strip.cardRadius !== undefined ? `--card-radius: ${strip.cardRadius}` : "",
+      ].filter(Boolean).join("; ")}
+    >
+      <div class="strip__rail" data-sketch-rail>
+        {images.map((src, index) => (
+          <figure
+            class="strip__card"
+            /* Descending z-index so the FIRST page sits on top and each one
+               after tucks behind it. Painting order alone would do the
+               opposite — later siblings win — which had every page half
+               hidden by the one that follows it, so the book appeared to run
+               backwards. */
+            style={`--card-ratio: ${widthAt(index)} / ${strip.cardWidthBasis}; --z: ${
+              images.length - index
+            };`}
+          >
+            <Image
+              src={src}
+              alt={`${label} ${index + 1}`}
+              width={1600}
+              widths={[480, 800, 1200, 1600]}
+              sizes={sizesFor(index)}
+              loading="lazy"
+              draggable="false"
+            />
+          </figure>
+        ))}
+      </div>
+    </div>
+  ) : (
+    /* Marked rather than omitted, so an unfilled strip reads as pending in the
+       column instead of silently leaving a gap in the running order. */
+    <figure class="strip strip--empty" style={`--frame: ${strip.frame};`}>
+      <span class="strip__note">
+        <strong>{label}</strong>
+        <span>drop images into src/assets/strip/{study}/</span>
+      </span>
+    </figure>
+  )
+}
+
+<style>
+  .strip {
+    position: relative;
+    width: 100%;
+    aspect-ratio: var(--frame);
+    background: var(--ground);
+    border-radius: var(--radius, max(10px, 1.4468cqw));
+    overflow: hidden;
+  }
+
+  .strip__rail {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    padding-inline: var(--pad);
+    /* Spacing is a margin, not `gap`, because `gap` rejects negative values —
+       DWA's pages have to sit ON each other to read as a fanned book, and a
+       negative gap is silently dropped, leaving the cards merely touching.
+       Both resolve percentages against this rail's width, so the two studies
+       stay specified in the same units. */
+
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* Keeps a sideways flick here from scrolling the case study behind it. */
+    overscroll-behavior-x: contain;
+    /* Vertical touch gestures still pass through to the page. */
+    touch-action: pan-x;
+
+    /* Scrollbar hidden to match the rest of the site, so the grab cursor is
+       the only thing telling the reader this moves — it carries more weight
+       now that a plain vertical wheel is deliberately left to the page. */
+    scrollbar-width: none;
+    /* Two declarations: the second upgrades to the retina asset where
+       image-set() is supported in `cursor`, and is discarded where it is not. */
+    cursor: var(--cursor-grab);
+    cursor: var(--cursor-grab-hidpi);
+  }
+
+  .strip__rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .strip__card {
+    position: relative;
+    /* Counts DOWN from the first card, so earlier pages overlap later ones. */
+    z-index: var(--z, 0);
+    margin: 0;
+    flex-shrink: 0;
+    height: var(--card-h);
+    aspect-ratio: var(--card-ratio);
+    border-radius: var(--card-radius, var(--radius, max(10px, 1.4468cqw)));
+    overflow: hidden;
+  }
+
+  .strip__card:not(:last-child) {
+    margin-right: var(--gap);
+  }
+
+  .strip__card :global(img) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* Dragging the rail must not start a native image drag. */
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  .strip--empty {
+    display: grid;
+    place-items: center;
+    margin: 0;
+    border: max(2px, 0.3035cqw) solid var(--color-ink);
+    background: repeating-linear-gradient(
+      45deg,
+      rgb(0 0 0 / 0.03) 0 12px,
+      transparent 12px 24px
+    );
+  }
+
+  .strip__note {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    font-size: clamp(0.75rem, 1.0417cqw, 18px);
+    font-weight: var(--weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: center;
+    color: rgb(0 0 0 / 0.35);
+  }
+
+  .strip__note span {
+    font-weight: var(--weight-medium);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.8em;
+    color: rgb(0 0 0 / 0.25);
+  }
+</style>

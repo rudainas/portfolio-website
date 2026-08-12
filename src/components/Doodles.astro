@@ -1,0 +1,91 @@
+---
+import { inlineSvg } from "../lib/svg";
+
+import d01 from "../assets/doodles/doodle-01.svg?raw";
+import d02 from "../assets/doodles/doodle-02.svg?raw";
+import d03 from "../assets/doodles/doodle-03.svg?raw";
+import d04 from "../assets/doodles/doodle-04.svg?raw";
+import d05 from "../assets/doodles/doodle-05.svg?raw";
+import d06 from "../assets/doodles/doodle-06.svg?raw";
+import d07 from "../assets/doodles/doodle-07.svg?raw";
+import d08 from "../assets/doodles/doodle-08.svg?raw";
+import d09 from "../assets/doodles/doodle-09.svg?raw";
+import d10 from "../assets/doodles/doodle-10.svg?raw";
+import d11 from "../assets/doodles/doodle-11.svg?raw";
+
+/**
+ * doodles-motion — Figma node 1790:5813, an 1008 x 690 frame of 11 loose
+ * marks scattered across it.
+ *
+ * They come from Figma as vectors rather than a flattened bitmap, so each is
+ * inlined and animatable in its own right. Positions and sizes below are the
+ * Figma coordinates expressed as percentages of that 1008 x 690 frame, so the
+ * scatter scales with the container instead of drifting apart.
+ *
+ * Each SVG was matched to its position by DIMENSIONS — every vector in the
+ * frame has a unique width/height, and the export order does not match the
+ * layer order, so pairing them any other way would have been guesswork.
+ *
+ * `speed` seeds the idle drift in scripts/motion/doodles.ts; varying it stops
+ * the marks bobbing in visible lockstep.
+ */
+
+const DOODLES = [
+  { key: "d01", svg: d01, left: 6.2500,  top: 25.2507, width: 1.8700, ratio: 18.8495 / 19.3985,  speed: 1.15 },
+  { key: "d02", svg: d02, left: 87.7976, top: 77.1348, width: 2.2295, ratio: 22.4733 / 29.7747,  speed: 0.85 },
+  { key: "d03", svg: d03, left: 49.9008, top: 83.5106, width: 2.1636, ratio: 21.8092 / 24.5894,  speed: 1.30 },
+  { key: "d04", svg: d04, left: 4.2659,  top: 59.4597, width: 12.4700, ratio: 125.697 / 28.231,  speed: 0.95 },
+  { key: "d05", svg: d05, left: 14.7119, top: 59.4536, width: 3.5793, ratio: 36.0785 / 31.5789,  speed: 1.45 },
+  { key: "d06", svg: d06, left: 67.1627, top: 1.7724,  width: 2.4571, ratio: 24.7677 / 27.025,   speed: 1.05 },
+  { key: "d07", svg: d07, left: 84.4246, top: 20.3225, width: 11.2415, ratio: 113.314 / 170.41,  speed: 0.80 },
+  { key: "d08", svg: d08, left: 36.7063, top: 66.1193, width: 2.5006, ratio: 25.2066 / 25.6593,  speed: 1.25 },
+  { key: "d09", svg: d09, left: 49.9008, top: 25.8294, width: 9.4515, ratio: 95.2716 / 65.2138,  speed: 1.00 },
+  { key: "d10", svg: d10, left: 73.1151, top: 50.7570, width: 3.7339, ratio: 37.6374 / 42.8226,  speed: 1.35 },
+  { key: "d11", svg: d11, left: 18.3532, top: 14.5251, width: 13.9578, ratio: 140.695 / 81.8773, speed: 0.90 },
+];
+---
+
+<div class="doodles" data-doodles aria-hidden="true">
+  {
+    DOODLES.map(({ key, svg, left, top, width, ratio, speed }) => (
+      <span
+        class="doodle"
+        data-doodle
+        data-speed={speed}
+        style={`--left:${left}%; --top:${top}%; --width:${width}%; --ratio:${ratio};`}
+        set:html={inlineSvg(svg, key)}
+      />
+    ))
+  }
+</div>
+
+<style>
+  .doodles {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    /* Empty space between marks must not eat hover from the card. */
+    pointer-events: none;
+  }
+
+  .doodle {
+    position: absolute;
+    left: var(--left);
+    top: var(--top);
+    width: var(--width);
+    aspect-ratio: var(--ratio);
+    /* Marks would vanish on narrow screens at raw percentages. */
+    min-width: 10px;
+    /* Hoverable across the whole box, not just the painted scribble — these
+       are thin marks, and hit-testing the ink alone would be fiddly. */
+    pointer-events: auto;
+    will-change: transform, opacity;
+  }
+
+  .doodle :global(svg) {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+</style>

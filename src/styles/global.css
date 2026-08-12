@@ -1,0 +1,83 @@
+@import "./tokens.css";
+
+/* ---------- Reset ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  /* Two declarations on purpose: the first is the universal fallback, the
+     second upgrades to a retina asset where image-set() in `cursor` is
+     supported. Browsers that do not understand image-set discard line two
+     and keep line one. */
+  cursor: var(--cursor-default);
+  cursor: var(--cursor-default-hidpi);
+}
+
+body {
+  min-height: 100svh;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Visible focus for keyboard users only — the design has no focus state,
+   so this is an accessibility addition rather than a Figma translation. */
+:focus-visible {
+  outline: var(--border-bold) solid var(--color-pink);
+  outline-offset: 4px;
+}
+
+/* ---------- Utilities ---------- */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Elements the entrance timeline animates start hidden, so there is no flash
+   of final-position content before GSAP takes over. The `js-motion` class is
+   set on <html> by a blocking inline script in BaseLayout — without JS the
+   rule never applies and everything renders normally.
+   GSAP's autoAlpha writes an inline `visibility`, which outranks this. */
+.js-motion [data-nav],
+.js-motion [data-wordmark],
+.js-motion [data-cloud],
+.js-motion [data-confetti] {
+  visibility: hidden;
+}

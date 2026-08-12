@@ -1,0 +1,157 @@
+---
+import GridBackdrop from "./GridBackdrop.astro";
+import CursorTrail from "./CursorTrail.astro";
+import TransitionStreaks from "./TransitionStreaks.astro";
+import Confetti from "./Confetti.astro";
+import Nav from "./Nav.astro";
+
+interface Props {
+  /** Nav key of the current page, so that pill renders in its active state. */
+  active?: string;
+  /** Render the nav. Off for 404, whose only way out is its own button. */
+  nav?: boolean;
+  /**
+   * Render the cursor trail. On for home and 404; off for Projects, where it
+   * would compete with the artwork it passes behind. Opt-in rather than
+   * opt-out so a new page has to decide deliberately.
+   */
+  trail?: boolean;
+  /**
+   * Number of scroll steps. Above 1, the stage becomes sticky inside a
+   * wrapper N screens tall, so scrolling advances content while the layout
+   * stays put. Left at 1 the wrapper is inert and the page behaves as before.
+   */
+  steps?: number;
+  /**
+   * Pin the stage to exactly the viewport instead of holding the design's
+   * aspect ratio.
+   *
+   * For pages whose content is endless rather than a fixed composition. The
+   * ratio makes the stage TALLER than the window on a wide screen — fine when
+   * the page scrolls, but a page that claims the wheel for its own panning has
+   * no scroll left to reach what fell below the fold.
+   */
+  fit?: boolean;
+}
+
+const { active, nav = true, trail = false, steps = 1, fit = false } = Astro.props;
+const stepped = steps > 1;
+
+/**
+ * Screens of scrolling per step. Under one screen so a change arrives before
+ * the reader has to travel a full viewport for it.
+ */
+const SCREENS_PER_STEP = 0.6;
+const loopScreens = steps * SCREENS_PER_STEP;
+
+/**
+ * The shared canvas every page sits on — Figma frames are all 1728 x 1117 with
+ * the same grid, the same eight confetti and the same nav, so those live here
+ * rather than being repeated per page.
+ *
+ * This element is the container-query context, which is what lets children
+ * size themselves in `cqw` against the design canvas. It also creates a
+ * stacking context (`container-type: inline-size` implies `contain: layout`),
+ * so every layer must be a descendant — see --layer-* in tokens.css.
+ *
+ * Paint order is set by those tokens, not by source order, but the two are
+ * kept in agreement here so the file reads bottom-to-top.
+ */
+---
+
+<div
+  class:list={["stage-scroll", { "stage-scroll--stepped": stepped }]}
+  data-stage-scroll
+  style={stepped ? `--loop-screens: ${loopScreens}` : undefined}
+>
+  <section class:list={["stage", { "stage--fit": fit }]} data-stage>
+    <GridBackdrop />
+    {trail && <CursorTrail />}
+    <TransitionStreaks />
+    <Confetti />
+    <slot />
+    {nav && <Nav active={active} />}
+  </section>
+</div>
+
+<style>
+  .stage-scroll {
+    position: relative;
+  }
+
+  .stage {
+    position: relative;
+    container-type: inline-size;
+    width: 100%;
+    min-height: 100svh;
+    /* Keeps the composition from crushing on short/landscape viewports. */
+    aspect-ratio: 1728 / 1117;
+    background: var(--color-paper);
+    overflow: hidden;
+  }
+
+  .stage--fit {
+    height: 100svh;
+    min-height: 0;
+    aspect-ratio: auto;
+  }
+
+  /* Stepped pages only. The wrapper provides the scroll distance and the
+     stage sticks to the viewport while it passes. `aspect-ratio` has to go
+     here: a sticky element needs a definite height, and the ratio would
+     otherwise make the stage taller than the screen it is meant to fill. */
+  /* THREE full rotations of runway plus the sticky screen itself.
+     project-scroll.ts wraps the reader back by one rotation when they pass the
+     second, so they land in the MIDDLE of the runway rather than at its start.
+     That middle landing is what leaves a full rotation of room above them —
+     without it every wrap would dump them at scrollY 0, where scrolling up
+     exits to the hero, and rewinding the queue would be impossible. */
+  .stage-scroll--stepped {
+    height: calc((var(--loop-screens) * 3 + 1) * 100svh);
+  }
+
+  .stage-scroll--stepped .stage {
+    position: sticky;
+    top: 0;
+    height: 100svh;
+    min-height: 0;
+    aspect-ratio: auto;
+  }
+
+  /* Hide the scrollbar on stepped pages only.
+     The runway is deliberately long and the endless loop rewinds the scroll
+     position once per rotation, so the thumb is both tiny and jumpy — it
+     reports nothing truthful about progress and only pulls the eye. Scrolling
+     itself is untouched; this hides the indicator, not the behaviour.
+     Scoped with :has so pages without a stepped stage keep their scrollbar. */
+  :global(html:has(.stage-scroll--stepped)) {
+    scrollbar-width: none;
+  }
+
+  :global(html:has(.stage-scroll--stepped))::-webkit-scrollbar {
+    display: none;
+  }
+</style>
+
+<script>
+  import { initHero } from "../scripts/motion/hero";
+  import { initPageTransition } from "../scripts/motion/page-transition";
+  import { initProjectScroll } from "../scripts/motion/project-scroll";
+  import { initScrollExit } from "../scripts/motion/scroll-exit";
+
+  const stage = document.querySelector<HTMLElement>("[data-stage]");
+  if (stage) {
+    // initHero guards every selector, so it animates whatever the page has —
+    // on Projects there is no wordmark or CTA and it simply skips them.
+    initHero(stage);
+    initPageTransition(stage);
+  }
+
+  // No-op unless the page rendered a stepped gallery.
+  const gallery = document.querySelector<HTMLElement>("[data-gallery]");
+  if (gallery && stage) {
+    initProjectScroll(gallery);
+    // Rewinding past the top of the queue leaves the page upward, back home.
+    initScrollExit(stage, "/");
+  }
+</script>

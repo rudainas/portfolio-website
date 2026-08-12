@@ -1,0 +1,350 @@
+---
+import { Image } from "astro:assets";
+import Shine from "./Shine.astro";
+import { inlineSvg } from "../lib/svg";
+import { PROJECTS } from "../data/projects";
+
+/**
+ * Projects gallery — Figma frames Projects (1521:3352), Projects-Yoko
+ * (1737:499), Projects-DWA (1748:644) and Projects-Bees (1748:721).
+ *
+ * Those four frames are the same layout in four states, so this renders one
+ * layout and swaps which project is featured as you scroll. The states form a
+ * ROTATING QUEUE: whichever project is featured drops to the end of the
+ * thumbnail column and the rest shift up.
+ *
+ *   featured Basquiat -> thumbs Yoko, DWA, Bees
+ *   featured Yoko     -> thumbs DWA, Bees, Basquiat
+ *   featured DWA      -> thumbs Bees, Basquiat, Yoko
+ *   featured Bees     -> thumbs Basquiat, Yoko, DWA
+ *
+ * Every project is rendered once in each role. The featured cards are stacked
+ * and cross-faded; the thumbnails are one flex column reordered with CSS
+ * `order`, so nothing is created or destroyed while scrolling and the shine
+ * overlays stay bound to their original elements.
+ *
+ * Geometry is proportional in cqw against the 1728px canvas, as elsewhere.
+ */
+---
+
+<div class="gallery" data-page-content data-gallery data-count={PROJECTS.length}>
+  <div class="featured-stack">
+    {
+      PROJECTS.map((project, index) => (
+        <article
+          class="featured"
+          data-featured
+          data-index={index}
+          data-open-case-study={project.caseStudy ? project.key : undefined}
+          aria-hidden={index === 0 ? undefined : "true"}
+        >
+          {/* eager + sync decoding on purpose. These cards are swapped by an
+              instant cut, so a lazily-loaded or async-decoded image paints the
+              card's white background for a frame first — which reads as a
+              blink. All four belong to one view, so there is nothing to defer. */}
+          <Image
+            class="featured__image"
+            src={project.image}
+            alt={project.alt}
+            widths={[720, 1080, 1440, 2064]}
+            sizes="(max-width: 900px) 100vw, 58vw"
+            loading="eager"
+            decoding="sync"
+          />
+          <Shine />
+
+          <header class="featured__bar">
+            <span
+              class="tag-blob"
+              style={`--blob-aspect: ${project.categoryAspect}; --blob-rotate: ${project.categoryRotate}deg;`}
+            >
+              <span
+                class="tag-blob__shape"
+                set:html={inlineSvg(project.categoryBlob, `cat-${project.key}`)}
+              />
+              <span class="tag-blob__label">{project.category}</span>
+            </span>
+            <span class="tag-pill">{project.title}</span>
+          </header>
+        </article>
+      ))
+    }
+  </div>
+
+  {/* data-hover-label drives the cursor-following pill (HoverLabel.astro).
+      Only the side thumbnails carry it: the featured card already shows its
+      category on the blob, and the thumb matching the featured project is
+      display:none, so it cannot be hovered. */}
+  <div class="thumbs">
+    {
+      PROJECTS.map((project, index) => (
+        <article
+          class="thumb"
+          data-thumb
+          data-index={index}
+          data-hover-label={project.category}
+        >
+          <Image
+            class="thumb__image"
+            src={project.image}
+            alt={project.alt}
+            widths={[360, 720]}
+            sizes="17vw"
+            loading="eager"
+          />
+          <Shine />
+          <span class="thumb__title">{project.title}</span>
+        </article>
+      ))
+    }
+  </div>
+</div>
+
+<style>
+  .gallery {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    /* Figma: y 258 of 1117, width 1381.635 of 1728. */
+    top: 23.0975%;
+    width: 79.9557cqw;
+    display: flex;
+    align-items: flex-start;
+    /* 83 / 1728 */
+    gap: 4.8032cqw;
+    z-index: var(--layer-wordmark);
+  }
+
+  /* ---------- Featured ---------- */
+
+  .featured-stack {
+    position: relative;
+    /* 1008 / 1381.635 of the gallery. */
+    width: 72.9494%;
+    aspect-ratio: 1008 / 690;
+    flex-shrink: 0;
+  }
+
+  .featured {
+    position: absolute;
+    inset: 0;
+    /* Figma uses a 5.244px stroke here rather than the usual 3px. */
+    border: max(2px, 0.3035cqw) solid var(--color-ink);
+    border-radius: max(10px, 1.4468cqw);
+    background: var(--color-paper);
+    overflow: hidden;
+
+    /* Makes the card itself the container for the label row below. Those
+       labels are specified against Figma's 1008px card, but cqw was resolving
+       against the whole stage — so their padding and border stayed a fixed
+       size while the card shrank, and the label grew proportionally larger
+       than the image it sits on. */
+    container-type: inline-size;
+  }
+
+  /* Only the first is visible before JS runs, so no-JS still gets a page. */
+  .featured + .featured {
+    opacity: 0;
+  }
+
+  .featured__image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    /* Figma insets the bitmap slightly wider than the frame and crops it;
+       object-fit reproduces that without hard-coding the offset. */
+    object-fit: cover;
+  }
+
+  .featured__bar {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    /* Above the shine overlay (z-index 1), so the sweep passes behind the
+       tags rather than washing over them. */
+    z-index: 2;
+    /* Figma: 30 / 690 down, 951.09 / 1008 wide. Narrowed from 94.35% so the
+       title pill clears the card's right edge by more than the design's hair's
+       breadth — at this card size that margin read as the label touching the
+       image. */
+    top: 4.3478%;
+    width: 90%;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+
+  /* ---------- Category blob ---------- */
+
+  /* Every label dimension is a straight percentage of the CARD (see
+     container-type above), taken from Figma's 1008px-wide card: 18px type,
+     12/16 padding, 3px stroke.
+
+     Deliberately unclamped. A clamp caps the label at some card size and lets
+     the card keep growing past it, so the proportion Figma specified only
+     holds inside the clamp's range — above it the label reads too small, below
+     it too large, which is the exact fault this is meant to fix. Everything
+     else on the page scales freely in cqw; the labels match. Legibility on
+     small screens is handled at the 900px breakpoint, where the layout changes
+     anyway. */
+  .featured {
+    --label-pad-y: 1.19cqw;
+    --label-pad-x: 1.587cqw;
+    --label-size: 1.7857cqw;
+    --label-border: 0.2976cqw;
+  }
+
+  .tag-blob {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--label-pad-y) var(--label-pad-x);
+    /* Each category tilts differently — see data/projects.ts. */
+    rotate: var(--blob-rotate);
+    font-size: var(--label-size);
+    line-height: calc(24 / 18);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-nav);
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--color-ink);
+  }
+
+  .tag-blob__shape {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 100%;
+    aspect-ratio: var(--blob-aspect);
+    z-index: 0;
+  }
+
+  .tag-blob__shape :global(svg) {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .tag-blob__label {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ---------- Outlined pill ---------- */
+
+  .tag-pill {
+    /* Border inset from the padding, as on the nav pills, so the box matches
+       Figma's 12/16 rather than inflating by the stroke. */
+    --pill-border: var(--label-border);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: calc(var(--label-pad-y) - var(--pill-border))
+      calc(var(--label-pad-x) - var(--pill-border));
+    background: var(--color-paper);
+    border: var(--pill-border) solid var(--color-ink);
+    border-radius: var(--radius-pill);
+    font-size: var(--label-size);
+    line-height: calc(24 / 18);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-nav);
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--color-ink);
+  }
+
+  /* ---------- Thumbnail column ---------- */
+
+  .thumbs {
+    display: flex;
+    flex-direction: column;
+    width: 21.0357%;
+    flex-shrink: 0;
+  }
+
+  .thumb {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 290.635 / 196;
+    border: var(--border-bold) solid var(--color-ink);
+    border-radius: max(10px, 1.4468cqw);
+    background: var(--color-paper);
+    overflow: hidden;
+    cursor: inherit;
+    /* Reordered by the scroll module; the featured one is hidden. */
+    order: 0;
+  }
+
+  /* 52 / 290.635 of this column's width. Applied to every thumb but the one
+     in the first slot, since source order no longer matches visual order. */
+  .thumb:not([data-slot="0"]) {
+    margin-top: 17.8917%;
+  }
+
+  .thumb[data-slot="hidden"] {
+    display: none;
+  }
+
+  .thumb__image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* The thumbnails carry no label in Figma; this is a screen-reader anchor so
+     the queue is not an unlabelled set of images. */
+  .thumb__title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 900px) {
+    .gallery {
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-8);
+    }
+
+    .featured-stack,
+    .thumbs {
+      width: 100%;
+    }
+
+    .thumbs {
+      flex-direction: row;
+      gap: var(--space-4);
+    }
+
+    .thumb {
+      flex: 1;
+    }
+
+    .thumb:not([data-slot="0"]) {
+      margin-top: 0;
+    }
+
+    /* Below this width the card is narrow enough that a strict proportion of
+       it would put the label under ~9px. Switched to the viewport so the text
+       stays readable; it grows slightly relative to the image, which is the
+       right trade on a phone. */
+    .featured {
+      --label-pad-y: clamp(4px, 1.1vw, 10px);
+      --label-pad-x: clamp(6px, 1.5vw, 13px);
+      --label-size: clamp(9px, 1.7vw, 15px);
+      --label-border: clamp(1.5px, 0.28vw, 2.5px);
+    }
+  }
+</style>

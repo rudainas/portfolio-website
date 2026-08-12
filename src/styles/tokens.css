@@ -1,0 +1,121 @@
+/**
+ * Design tokens — single source of truth for visual values.
+ *
+ * Derived from Figma file HeoKf5O7FMzTzK5yh0mG4w, frame "Hero" (1506:1788).
+ * The file defines no Figma Variables, so these were extracted from the
+ * node's raw fills/geometry. If Variables are added in Figma later, this
+ * file is what they should map onto.
+ *
+ * IMPORTANT: never hardcode a hex, radius, or border width in a component.
+ */
+
+:root {
+  /* ---------- Color ---------- */
+  --color-ink: #000000;
+  --color-paper: #ffffff;
+  --color-pink: #ff3a93;
+  --color-yellow: #ffea49;
+  --color-sky: #95e1ff;
+
+  --color-grid-line: #5d5d5d;
+  --opacity-grid-line: 0.25;
+
+  /* ---------- Typography ---------- */
+  /* Wordmark is SVG artwork, so Satoshi only affects nav + CTA text. */
+  --font-display: "Satoshi", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --weight-medium: 500;
+  --weight-bold: 700;
+  --weight-black: 900;
+
+  /* Fluid type: exact at the 1728px design canvas, clamped for small screens.
+     1728px canvas -> 18px nav = 1.0417cqw, 30px CTA = 1.7361cqw */
+  --text-nav: clamp(0.875rem, 1.0417cqw, 1.125rem);
+  --text-cta: clamp(1.125rem, 1.7361cqw, 1.875rem);
+  /* Figma specifies no tracking on the uppercase labels; the 93px text box
+     for "PROJECTS" only measures out at 18px Satoshi Bold with tracking 0. */
+  --tracking-nav: 0;
+
+  /* ---------- Space (4px base scale) ---------- */
+  --space-1: 0.25rem; /*  4px */
+  --space-2: 0.5rem; /*  8px */
+  --space-3: 0.75rem; /* 12px — pill vertical padding */
+  --space-4: 1rem; /* 16px — pill horizontal padding */
+  --space-5: 1.25rem; /* 20px — nav gap */
+  --space-8: 2rem; /* 32px */
+
+  /* ---------- Shape ---------- */
+  /* Figma uses r=32 on two pills and r=36 on the third. Both exceed half of
+     the 48px pill height, so they render identically. Normalized to one token. */
+  --radius-pill: 999px;
+  --border-bold: 3px;
+
+  /* ---------- Design canvas ---------- */
+  /* Figma frame 1506:1788 is 1728 x 1117. Percentage positions throughout
+     the hero are computed against these numbers. */
+  --canvas-w: 1728;
+  --canvas-h: 1117;
+
+  /* Grid backdrop keeps a fixed pixel pitch rather than scaling, so line
+     density stays constant across viewport sizes. */
+  --grid-pitch: 88.81px;
+  --grid-stroke-width: 1.03268;
+  --grid-dash: 10 10;
+
+  /* ---------- Cursor ---------- */
+  /* Figma node 1521:3349. Source vector lives at public/cursors/cursor-plus.svg;
+     the PNGs beside it are what actually ship, because Safari does not support
+     SVG cursors.
+
+     Rendered at 24px rather than the Figma box's 32 — at full size the plus
+     read as an object on the page rather than as a pointer. The hotspot is
+     always half the 1x size (12 12 here) so the crosshair's centre sits exactly
+     on what it is over; get this wrong and every click lands off-target. */
+  --cursor-default: url("/cursors/cursor-plus-24.png") 12 12, auto;
+  --cursor-default-hidpi: image-set(
+      url("/cursors/cursor-plus-24.png") 1x,
+      url("/cursors/cursor-plus-48.png") 2x
+    )
+    12 12, auto;
+
+  /* Draggable things — the same plus turned 45deg, so the pointer changes
+     without becoming a different object. Falls back to the system `grab`,
+     which is what a reader already knows the shape means. */
+  --cursor-grab: url("/cursors/cursor-grab-24.png") 12 12, grab;
+  --cursor-grab-hidpi: image-set(
+      url("/cursors/cursor-grab-24.png") 1x,
+      url("/cursors/cursor-grab-48.png") 2x
+    )
+    12 12, grab;
+
+  /* ---------- Cursor trail ---------- */
+  /* Figma node 1514:1988. The source shapes are ~106-116 units across; this is
+     the on-screen size each spawned shape is rendered at. */
+  --trail-size: 64px;
+
+  /* ---------- Layering ---------- */
+  /* One scale for the hero's stacked layers, so paint order is stated in one
+     place instead of being spread across five components.
+     NOTE: .hero sets `container-type: inline-size`, which implies
+     `contain: layout` and therefore creates a stacking context. Every layer
+     below must be a DESCENDANT of .hero for these values to relate to each
+     other — a sibling of .hero cannot be interleaved between them. */
+  --layer-grid: 0;
+  --layer-trail: 1;
+  --layer-confetti: 2;
+  --layer-wordmark: 3;
+  --layer-ui: 4;
+  /* Above everything: the launch streaks sweep over the whole page as it
+     clears, so they must not pass behind the nav or the artwork. */
+  --layer-streaks: 6;
+  /* The contact pod. Rendered at body level rather than inside .hero — a
+     stacking context it cannot escape — so this sits outside the scale above
+     and simply has to beat it. */
+  --layer-modal: 20;
+
+  /* ---------- Motion ---------- */
+  /* Mirrored in src/scripts/motion/tokens.ts for GSAP. Keep the two in sync. */
+  --dur-fast: 0.25s;
+  --dur-base: 0.45s;
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}

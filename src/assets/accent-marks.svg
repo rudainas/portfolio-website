@@ -1,0 +1,30 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="63.7539" height="81.8892" viewBox="0 0 63.7539 81.8892" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!--
+  Group 83 — the "!!" accent above the wordmark. Figma node 1508:1975.
+
+  MODIFIED FROM THE FIGMA EXPORT. The export is four flat sibling paths:
+  two slanted strokes and two dots. The hover bounce in
+  src/scripts/motion/hero.ts animates the direct children of the root <g>,
+  one bounce per child, so four flat siblings would bounce each dot away
+  from the stroke it belongs to.
+
+  The paths are therefore grouped into one <g> per exclamation mark, pairing
+  each stroke with its dot. Geometry is untouched — only nesting and source
+  order changed, and the marks do not overlap so the reorder is invisible.
+
+  IF THIS ASSET IS RE-EXPORTED FROM FIGMA, re-apply this grouping, or the
+  dots will detach on hover.
+    left  mark = Vector_2 (stroke, x 0-33)  + Vector_4 (dot, x 28-39)
+    right mark = Vector   (stroke, x 38-64) + Vector_3 (dot, x 51-63)
+-->
+<g id="Group 83">
+<g id="Mark-Left">
+<path id="Vector_2" d="M12.7065 9.36695C13.4562 9.45279 14.102 9.68572 14.8326 9.8972C18.3304 13.2171 19.6772 26.1282 21.9117 31.1458C23.6253 34.9944 25.2331 38.5266 27.3264 42.3027C28.7505 45.3167 31.8311 48.9804 32.5944 52.1396C34.6245 60.5423 26.6486 55.7666 23.7486 53.9117C13.0378 47.2399 3.89195 36.2207 0.705175 23.7884C-2.03399 13.1024 3.46697 11.4782 12.7065 9.36695ZM11.814 14.6537C9.17671 15.5433 6.93473 16.2534 4.41021 17.4548C6.39502 22.7533 8.94413 30.1099 12.3553 34.5422C14.0907 37.6078 18.6824 41.98 21.2522 44.4147C18.3796 39.1864 17.1534 36.7069 15.3138 31.051C13.9077 26.7505 12.0208 19.1914 11.814 14.6537Z" fill="black"/>
+<path id="Vector_4" d="M33.9294 69.7986C40.0926 70.8837 41.4027 80.0234 34.379 81.8892C27.7799 79.9118 25.5465 72.1002 33.9294 69.7986Z" fill="black"/>
+</g>
+<g id="Mark-Right">
+<path id="Vector" d="M40.9949 0.00988398C45.1913 -0.110678 49.9867 0.895511 52.2704 1.72852C60.1035 4.58612 68.0603 2.85025 61.0546 14.1757C55.3729 23.3606 53.7253 35.4067 52.5865 46.0123C52.2427 49.2124 52.2521 52.9128 51.7768 56.3654C51.1836 57.4856 50.6193 58.502 49.3038 58.8321C48.3301 59.0767 47.1628 59.0229 46.293 58.4891C39.7259 54.4614 38.5373 28.2881 38.1274 20.4986C37.8899 15.9889 38.1276 11.0693 38.1276 11.0693C38.4223 5.95325 38.1949 2.98063 40.9949 0.00988398ZM42.6372 11.0693C41.4073 14.9956 45.1815 30.3099 46.7195 38.9604C47.2077 36.6814 47.7541 34.3107 48.1631 32.0247C49.8322 21.0243 51.3592 18.8004 55.7585 9.50146C51.2207 8.2775 45.6108 6.04948 44.5064 6.70615C44.5064 6.70615 43.8671 7.14288 42.6372 11.0693Z" fill="black"/>
+<path id="Vector_3" d="M56.498 68.2327C61.9903 67.9623 67.6544 77.2038 58.4461 79.2342C55.495 78.7937 52.4273 77.6115 51.2589 74.5916C50.8409 73.4941 50.9322 72.2678 51.5086 71.2444C52.6357 69.2054 54.414 68.846 56.498 68.2327Z" fill="black"/>
+</g>
+</g>
+</svg>

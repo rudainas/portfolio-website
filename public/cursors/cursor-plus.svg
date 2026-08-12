@@ -1,0 +1,17 @@
+<svg width="37.407" height="37.407" viewBox="0 0 37.407 37.407" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Default cursor. Figma node 1521:3349 ("close").
+
+    The Figma export is two diagonal strokes (an X) because the rotation lives
+    on the layer, not the vector, and Figma's codegen drops it. Rendered, it is
+    a plus. Re-authored here as an upright plus so no transform is needed.
+
+    Stroke weight (9.0318) and round caps are carried over from the export
+    verbatim. Arm half-length 14.1876 is half the X's diagonal segment length;
+    plus the 4.5159 cap radius that gives the 37.407 box.
+  -->
+  <g stroke="black" stroke-width="9.0318" stroke-linecap="round">
+    <path d="M18.7035 4.5159V32.8911" />
+    <path d="M4.5159 18.7035H32.8911" />
+  </g>
+</svg>

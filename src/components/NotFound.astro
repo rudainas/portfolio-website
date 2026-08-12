@@ -1,0 +1,122 @@
+---
+import { inlineSvg } from "../lib/svg";
+import backHomeCloud from "../assets/back-home-cloud.svg?raw";
+
+/**
+ * 404 content — Figma frame 1514:1999, "Frame 114" (559 x 567.6, centred).
+ *
+ * The frame carries no nav, so the cloud button is the only way out; Stage is
+ * mounted with `nav={false}` on this route. It is also the one page that keeps
+ * the cursor trail.
+ *
+ * The button reuses the hero CTA's cloud at a wider 258.01 x 109.607 (the hero
+ * is 218.01 wide), so it gets its own asset rather than a stretched copy.
+ */
+---
+
+<div class="not-found" data-page-content>
+  <div class="not-found__text">
+    <p class="not-found__code">404</p>
+    <p class="not-found__message">Page not found :(</p>
+  </div>
+
+  <a class="back-home" href="/" data-sfx-hover data-sfx-click data-back-home>
+    <span class="back-home__shape" data-back-home-shape set:html={inlineSvg(backHomeCloud, "back-home")} />
+    <span class="back-home__label">Back Home</span>
+  </a>
+</div>
+
+<style>
+  .not-found {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: var(--layer-wordmark);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* 559 / 1728 and 74 / 1728 of the design canvas. */
+    width: 32.3495cqw;
+    gap: 4.2824cqw;
+  }
+
+  .not-found__text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    color: var(--color-ink);
+  }
+
+  .not-found__code {
+    /* 275 / 1728 */
+    font-size: clamp(4.5rem, 15.9144cqw, 275px);
+    font-weight: var(--weight-black);
+    /* Figma reports a 371px box for 275px type — 1.349, tighter than `normal`,
+       and the -48px overlap below depends on it. */
+    line-height: 1.349;
+    text-transform: uppercase;
+    text-align: center;
+    width: 100%;
+    /* Figma pulls the message up under the numerals: -48 / 1728. */
+    margin-bottom: -2.7778cqw;
+  }
+
+  .not-found__message {
+    /* 45 / 1728 */
+    font-size: clamp(1.125rem, 2.6042cqw, 45px);
+    font-weight: var(--weight-medium);
+    line-height: 1.3556;
+    text-align: center;
+    width: 100%;
+  }
+
+  /* ---------- Back-home cloud ---------- */
+
+  .back-home {
+    position: relative;
+    /* 258.01 / 1728 */
+    width: 14.9311cqw;
+    min-width: 168px;
+    aspect-ratio: 258.01 / 109.607;
+    display: grid;
+    place-items: center;
+    /* Keeps the custom plus cursor rather than the system hand. */
+    cursor: inherit;
+    /* The idle float animates this element, so shape and label move together. */
+    will-change: transform;
+  }
+
+  .back-home__shape {
+    position: absolute;
+    inset: 0;
+    /* Hover squash targets the shape alone so the label never skews. */
+    will-change: transform;
+  }
+
+  .back-home__shape :global(svg) {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .back-home__label {
+    position: relative;
+    font-size: var(--text-cta);
+    font-weight: var(--weight-bold);
+    line-height: calc(41 / 30);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-nav);
+    color: var(--color-ink);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+</style>
+
+<script>
+  import { initBackHome } from "../scripts/motion/not-found";
+
+  const button = document.querySelector<HTMLElement>("[data-back-home]");
+  if (button) initBackHome(button);
+</script>

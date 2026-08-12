@@ -1,0 +1,20 @@
+---
+import Stage from "./Stage.astro";
+import Wordmark from "./Wordmark.astro";
+import CloudButton from "./CloudButton.astro";
+
+/**
+ * Home hero — Figma frame 1506:1788.
+ *
+ * The backdrop (grid, streak layer, confetti, nav) comes from Stage, which
+ * every page shares. Only the wordmark and the CTA are specific to this page.
+ *
+ * The cursor trail runs here and on 404, but not on Projects — there it would
+ * compete with the artwork it passes behind.
+ */
+---
+
+<Stage trail>
+  <Wordmark />
+  <CloudButton />
+</Stage>

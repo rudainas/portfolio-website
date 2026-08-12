@@ -1,0 +1,74 @@
+---
+import "../styles/global.css";
+import HoverLabel from "../components/HoverLabel.astro";
+import ContactPod from "../components/ContactPod.astro";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = "Portfolio of Rudaina Suwaiba." } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    {/* Satoshi is free from Fontshare. The wordmark is SVG artwork, so type
+        only carries nav, CTAs and the 404 — hence `swap` costs nothing.
+        500 = "Page not found", 700 = UI, 900 = the 404 numerals. */}
+    <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://api.fontshare.com/v2/css?f[]=satoshi@500,700,900&display=swap"
+    />
+
+    {/* Blocking and inline on purpose: it must run before first paint so the
+        pre-hide rule in global.css applies without a flash.
+
+        The failsafe matters. `js-motion` hides the hero's contents until GSAP
+        reveals them, so if that module never loads — network blip, JS error,
+        blocked bundle — the page would sit blank forever. Dropping the class
+        after 3s guarantees content appears regardless. It cannot interrupt a
+        normal entrance: GSAP writes inline `visibility`, which outranks the
+        class rule, so removing the class is a no-op once motion is running. */}
+    <script is:inline>
+      document.documentElement.classList.add("js-motion");
+      setTimeout(function () {
+        document.documentElement.classList.remove("js-motion");
+      }, 3000);
+    </script>
+  </head>
+  <body>
+    <slot />
+
+    {/* Body level, never inside Stage — see HoverLabel.astro. */}
+    <HoverLabel />
+
+    {/* Also body level, and for the same reason plus one more: the pod is
+        `position: fixed`, and a Stage's container query would become its
+        containing block. See ContactPod.astro. */}
+    <ContactPod />
+
+    <script>
+      // Site-wide. Binding is delegated from the document, so elements only
+      // need `data-sfx-hover` / `data-sfx-click` to opt in.
+      import { initSfx } from "../scripts/audio/sfx";
+      import { initShine } from "../scripts/motion/shine";
+      import { initHoverLabel } from "../scripts/motion/hover-label";
+      import { initContactPod } from "../scripts/motion/contact-pod";
+      initSfx();
+      // All no-op on pages that render no matching elements.
+      initShine();
+      initHoverLabel();
+      // Reachable from the nav on every page, so it is bound here.
+      initContactPod();
+    </script>
+  </body>
+</html>
