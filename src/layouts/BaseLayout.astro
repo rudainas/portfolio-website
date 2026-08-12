@@ -9,6 +9,11 @@ interface Props {
 }
 
 const { title, description = "Portfolio of Rudaina Suwaiba." } = Astro.props;
+
+/* Absolute URLs, built from `site` in astro.config.mjs. Social platforms
+   silently ignore a relative og:image, so these cannot be plain paths. */
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const ogImage = new URL("/og-image.png", Astro.site);
 ---
 
 <!doctype html>
@@ -18,7 +23,34 @@ const { title, description = "Portfolio of Rudaina Suwaiba." } = Astro.props;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    {/* Link previews. Every page carries its own title and description, so a
+        shared /play link reads as Play rather than as the site's front door.
+
+        The image is the same one everywhere: it is the wordmark, which is the
+        thing worth recognising in a feed, and one image means one file for the
+        platforms to cache. Dimensions are declared because several platforms
+        reserve the space before the image arrives — without them the card can
+        reflow, or fall back to a small thumbnail on a slow connection. */}
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Rudaina Suwaiba" />
+    <meta property="og:locale" content="en_CA" />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Rudaina Suwaiba, drawn as bubble lettering" />
+
+    {/* `summary_large_image` is what makes the card full-width rather than a
+        thumbnail beside the text. The rest is read from the og tags above. */}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
 
     {/* Satoshi is self-hosted — the @font-face rules are in styles/global.css.
 
